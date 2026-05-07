@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PiQPull Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <h1>PiQPull Settings</h1>
+
+  <div class="instructions">
+    <h3>Organization ID</h3>
+    <p>PiQPull auto-detects your Organization ID when a Claude.ai tab is open.
+       You only need to enter it manually if auto-detect fails.</p>
+    <ol>
+      <li>Go to <a href="https://claude.ai/settings/account" target="_blank">claude.ai/settings/account</a></li>
+      <li>Copy your Organization ID — format: <code>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code></li>
+      <li>Paste below and click Save</li>
+    </ol>
+  </div>
+
+  <div class="section">
+    <label for="orgId">Organization ID (manual override):</label>
+    <input type="text" id="orgId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+    <div class="hint">Leave blank to rely on auto-detection (recommended).</div>
+    <button id="saveBtn">Save</button>
+    <button id="clearBtn">Clear</button>
+    <div id="saveStatus" class="status"></div>
+  </div>
+
+  <div class="section">
+    <h3>Test Connection</h3>
+    <p>Verifies your session and Organization ID against the Claude.ai API.</p>
+    <button id="testBtn">Test Connection</button>
+    <div id="testStatus" class="status"></div>
+  </div>
+
+  <div class="section">
+    <h3>PiQuix Server Push</h3>
+    <p>When enabled, exports also POST JSONL to <code>localhost:7432/export/write</code>.
+       Requires Start-PKScriptsServer.ps1 to be running.</p>
+    <label>
+      <input type="checkbox" id="serverPushGlobal">
+      Enable server push by default
+    </label>
+    <button id="saveServerPush">Save preference</button>
+    <div id="serverPushStatus" class="status"></div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

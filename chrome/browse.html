@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PiQPull — Browse Conversations</title>
+  <link rel="stylesheet" href="browse.css">
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-top">
+      <div class="header-left">
+
+        <div class="settings-wrapper">
+          <button class="settings-btn" id="settingsBtn" aria-label="Settings">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+
+          <div class="settings-dropdown" id="settingsDropdown" role="menu">
+            <div class="settings-item" id="themeToggle">
+              <span class="settings-label">Theme</span>
+              <span class="settings-value" id="themeLabel">Dark</span>
+            </div>
+            <div class="settings-divider"></div>
+            <div class="settings-item" id="markAllExported">
+              <span class="settings-label">Mark all as exported</span>
+            </div>
+            <div class="settings-item" id="markAllNew">
+              <span class="settings-label">Mark all as new</span>
+            </div>
+            <div class="settings-divider"></div>
+            <div class="settings-item" id="settingsOrgId" title="Click to copy">
+              <span class="settings-label">Org ID</span>
+              <span class="settings-value settings-org-id" id="orgIdDisplay">Auto-detected</span>
+            </div>
+            <div class="settings-item" id="editOrgId">
+              <span class="settings-label">Edit Org ID</span>
+              <span class="settings-value">&#8594;</span>
+            </div>
+            <div class="settings-divider"></div>
+            <div class="settings-item" id="toggleDateFormat">
+              <span class="settings-label">Date format</span>
+              <span class="settings-value" id="dateFormatLabel">M/D/Y</span>
+            </div>
+            <div class="settings-item" id="toggleTimeFormat">
+              <span class="settings-label">Time format</span>
+              <span class="settings-value" id="timeFormatLabel">12h</span>
+            </div>
+            <div class="settings-divider"></div>
+            <div class="settings-item" id="testConnection">
+              <span class="settings-label">Test connection</span>
+              <span class="settings-value" id="connectionStatus"></span>
+            </div>
+          </div>
+        </div>
+
+        <h1>PiQPull</h1>
+      </div>
+
+      <div class="header-right">
+        <div class="stats" id="stats">Loading...</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="search-group">
+        <div class="search-box" id="searchBox">
+          <input type="text" id="searchInput" placeholder="Search conversations…" autocomplete="off">
+          <button class="clear-btn" id="clearSearch" aria-label="Clear search">&#10005;</button>
+        </div>
+        <div class="filter-wrapper">
+          <button class="filter-btn" id="filterBtn" aria-label="Filter conversations">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" width="17" height="17" aria-hidden="true">
+              <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
+            </svg>
+          </button>
+          <div class="filter-dropdown" id="filterDropdown" role="menu">
+            <div class="filter-option" data-value="all">All conversations</div>
+            <div class="filter-option" data-value="new">New / Updated</div>
+            <div class="filter-option" data-value="exported">Previously exported</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="export-controls-wrapper">
+        <div class="export-settings">
+          <div class="export-row">
+            <div class="export-section">
+              <label>
+                Format:
+                <select id="exportFormat">
+                  <option value="json">JSON</option>
+                  <option value="markdown">Markdown</option>
+                  <option value="text">Plain Text</option>
+                  <option value="jsonl">JSONL</option>
+                </select>
+              </label>
+              <label title="Include conversation messages">
+                <input type="checkbox" id="includeChats" checked> Chats
+              </label>
+              <label title="Include extended thinking blocks">
+                <input type="checkbox" id="includeThinking"> Thinking
+              </label>
+              <label title="Add metadata header to exported files">
+                <input type="checkbox" id="includeMetadata"> Metadata
+              </label>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <div class="export-section">
+              <label>
+                Artifacts:
+                <select id="artifactFormat">
+                  <option value="original">Original</option>
+                  <option value="markdown">Markdown</option>
+                  <option value="text">Plain Text</option>
+                  <option value="json">JSON</option>
+                </select>
+              </label>
+              <label title="Artifacts inline in conversation text">
+                <input type="checkbox" id="includeArtifacts"> Inline
+              </label>
+              <label title="Artifacts as separate files in subfolders">
+                <input type="checkbox" id="extractArtifacts"> Nested
+              </label>
+              <label title="Artifacts flat, prefixed with conversation name">
+                <input type="checkbox" id="flattenArtifacts"> Flat
+              </label>
+              <label title="Also POST JSONL to localhost:7432/export/write">
+                <input type="checkbox" id="serverPush"> PiQuix
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <button class="export-all-btn" id="exportAllBtn" disabled>Export All</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="conversations-table">
+      <div id="tableContent">
+        <div class="loading">
+          <div class="spinner"></div>
+          <div id="loadingText">Connecting to Claude.ai…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="modal-overlay" id="progressModal" role="dialog" aria-modal="true" aria-label="Export progress">
+    <div class="modal-box">
+      <h3>Exporting Conversations</h3>
+      <div id="progressText">Preparing…</div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressBar"></div>
+      </div>
+      <div class="progress-stats" id="progressStats"></div>
+      <button class="btn-cancel" id="cancelExport">Cancel</button>
+    </div>
+  </div>
+
+  <script src="jszip.min.js"></script>
+  <script src="utils.js"></script>
+  <script src="browse-state.js"></script>
+  <script src="browse-format.js"></script>
+  <script src="browse-api.js"></script>
+  <script src="browse-table.js"></script>
+  <script src="browse-export.js"></script>
+  <script src="browse.js"></script>
+</body>
+</html>

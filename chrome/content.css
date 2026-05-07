@@ -1,0 +1,11 @@
+/* PiQPull — Content CSS
+   Minimal. No floating button injection — extension popup handles UI.
+   Only defensive resets to prevent claude.ai styles from bleeding into
+   any future injected elements. */
+
+.piqpull-injected {
+  all: initial;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  box-sizing: border-box;
+}
