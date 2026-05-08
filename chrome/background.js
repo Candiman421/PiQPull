@@ -1,60 +1,103 @@
 // PiQPull — Background Service Worker
-// Handles: extension install/update injection, content script relay,
+// Handles: extension install injection, content script relay,
 //           server push to localhost:7432 (avoids CORS from page context).
 
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('PiQPull installed');
+const PIQUIX_SERVER_BASE = 'http://localhost:7432';
 
-  // Re-inject into any already-open claude.ai tabs
-  chrome.tabs.query({ url: 'https://claude.ai/*' }, (tabs) => {
-    tabs.forEach(tab => {
+chrome.runtime.onInstalled.addListener(reinjectOpenClaudeTabs);
+
+function reinjectOpenClaudeTabs() {
+  chrome.tabs.query({ url: 'https://claude.ai/*' }, openTabs => {
+    openTabs.forEach(tab => {
       chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ['jszip.min.js', 'utils.js', 'content.js']
-      }).catch(err => console.log('PiQPull: Could not inject into tab', tab.id, err));
+        files:  ['jszip.min.js', 'utils.js', 'content.js']
+      }).catch(err => console.warn('PiQPull: Could not inject into tab', tab.id, err));
     });
   });
+}
+
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+  switch (request.action) {
+    case 'ensureContentScript':   return handleEnsureContentScript(sendResponse);
+    case 'pushToServer':          return handlePushToServer(request, sendResponse);
+    case 'pushToIncoming':        return handlePushToIncoming(request, sendResponse);
+    case 'fetchPiQuixProjects':   return handleFetchPiQuixProjects(sendResponse);
+    default:                      return false;
+  }
 });
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+function handleEnsureContentScript(sendResponse) {
+  chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+    if (!tabs || tabs.length === 0) { sendResponse({ success: false, error: 'No active tab found' }); return; }
+    chrome.scripting.executeScript(
+      { target: { tabId: tabs[0].id }, files: ['jszip.min.js', 'utils.js', 'content.js'] },
+      () => sendResponse({ success: true })
+    );
+  });
+  return true;
+}
 
-  // Ensure content scripts are injected into the active tab
-  if (request.action === 'ensureContentScript') {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) {
-        chrome.scripting.executeScript({
-          target: { tabId: tabs[0].id },
-          files: ['jszip.min.js', 'utils.js', 'content.js']
-        }, () => sendResponse({ success: true }));
-      }
-    });
-    return true;
-  }
+function handlePushToServer(request, sendResponse) {
+  const { filename, content } = request;
+  postToServer('/export/write', { filename, content })
+    .then(result => sendResponse(result))
+    .catch(err  => sendResponse({ success: false, error: err.message }));
+  return true;
+}
 
-  // Push JSONL to PiQuix server (called from content script or browse page).
-  // Service worker context avoids CORS issues.
-  if (request.action === 'pushToServer') {
-    const { filename, content } = request;
+// Structured incoming push — forwards all fields including orgName and artifactFiles.
+function handlePushToIncoming(request, sendResponse) {
+  const {
+    projectFolder,
+    chatSlug,
+    conversationId,
+    exportPayload,
+    imageAssets,
+    artifactFiles,  // [{ filename, content }] — text artifacts for disk write
+  } = request;
 
-    fetch('http://localhost:7432/export/write', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename, content })
+  postToServer('/export/incoming', {
+    projectFolder,
+    chatSlug,
+    conversationId,
+    exportPayload,
+    imageAssets:   imageAssets   || [],
+    artifactFiles: artifactFiles || [],
+  })
+    .then(result => sendResponse(result))
+    .catch(err  => sendResponse({ success: false, error: err.message }));
+
+  return true;
+}
+
+function handleFetchPiQuixProjects(sendResponse) {
+  fetch(`${PIQUIX_SERVER_BASE}/api/projects`, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+    .then(async serverResponse => {
+      if (!serverResponse.ok) { sendResponse({ success: false, error: `Server ${serverResponse.status}` }); return; }
+      const responseData  = await serverResponse.json();
+      const piQuixProjects = (responseData.projects || [])
+        .filter(proj => proj.claudeProject && proj.folder)
+        .map(proj => ({
+          folder:        proj.folder,
+          claudeProject: proj.claudeProject,
+          navSection:    proj.navSection || 'OTHER'
+        }));
+      sendResponse({ success: true, piQuixProjects });
     })
-      .then(async response => {
-        if (!response.ok) {
-          const text = await response.text();
-          sendResponse({ success: false, error: `Server ${response.status}: ${text}` });
-        } else {
-          sendResponse({ success: true });
-        }
-      })
-      .catch(err => {
-        // Server not running — non-fatal, log only
-        console.warn('PiQPull: Server push failed (server may not be running):', err.message);
-        sendResponse({ success: false, error: err.message });
-      });
+    .catch(err => sendResponse({ success: false, error: err.message }));
+  return true;
+}
 
-    return true;
+async function postToServer(endpointPath, bodyPayload) {
+  const serverResponse = await fetch(`${PIQUIX_SERVER_BASE}${endpointPath}`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(bodyPayload)
+  });
+  if (!serverResponse.ok) {
+    const errorText = await serverResponse.text();
+    return { success: false, error: `Server ${serverResponse.status}: ${errorText}` };
   }
-});
+  return { success: true, data: await serverResponse.json() };
+}

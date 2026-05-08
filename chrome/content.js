@@ -1,156 +1,250 @@
 // PiQPull — Content Script
-// Runs in claude.ai page context. Handles all API calls and export triggers.
-// Utils (getCurrentBranch, inferModel, DEFAULT_MODEL_TIMELINE, getPiQTimestamp,
-//        extractArtifactFiles, convertToMarkdown, convertToText, convertToJSONL,
-//        downloadFile) are all injected from utils.js — do not redefine here.
+// Runs in claude.ai page context. Handles all API calls, enrichment, and export triggers.
 
-// Double-injection guard
 if (window.piqPullContentScriptLoaded) {
-  console.log('PiQPull: content script already loaded, skipping');
+  console.log('PiQPull: content script already loaded, skipping re-injection');
 } else {
   window.piqPullContentScriptLoaded = true;
 
   // ---------------------------------------------------------------------------
-  // Export timestamp tracking
+  // Timestamp tracking
   // ---------------------------------------------------------------------------
 
   function recordExportTimestamp(conversationId) {
-    chrome.storage.local.get(['exportTimestamps'], result => {
-      const ts = result.exportTimestamps || {};
-      ts[conversationId] = new Date().toISOString();
-      chrome.storage.local.set({ exportTimestamps: ts });
+    chrome.storage.local.get(['exportTimestamps'], stored => {
+      const timestamps = stored.exportTimestamps || {};
+      timestamps[conversationId] = new Date().toISOString();
+      chrome.storage.local.set({ exportTimestamps: timestamps });
     });
   }
 
   function recordExportTimestamps(conversationIds) {
-    chrome.storage.local.get(['exportTimestamps'], result => {
-      const ts = result.exportTimestamps || {};
+    chrome.storage.local.get(['exportTimestamps'], stored => {
+      const timestamps = stored.exportTimestamps || {};
       const now = new Date().toISOString();
-      for (const id of conversationIds) ts[id] = now;
-      chrome.storage.local.set({ exportTimestamps: ts });
+      for (const convId of conversationIds) timestamps[convId] = now;
+      chrome.storage.local.set({ exportTimestamps: timestamps });
     });
   }
 
   // ---------------------------------------------------------------------------
-  // API helpers
+  // Claude.ai API helpers
   // ---------------------------------------------------------------------------
 
-  async function fetchConversation(orgId, conversationId) {
-    const url = `https://claude.ai/api/organizations/${orgId}/chat_conversations/${conversationId}?tree=True&rendering_mode=messages&render_all_tools=true`;
-    const response = await fetch(url, { credentials: 'include', headers: { Accept: 'application/json' } });
-    if (!response.ok) throw new Error(`Fetch conversation failed: ${response.status}`);
-    return response.json();
+  async function fetchConversationFromApi(orgId, conversationId) {
+    const apiUrl = `https://claude.ai/api/organizations/${orgId}/chat_conversations/${conversationId}?tree=True&rendering_mode=messages&render_all_tools=true`;
+    const apiResponse = await fetch(apiUrl, { credentials: 'include', headers: { Accept: 'application/json' } });
+    if (!apiResponse.ok) throw new Error(`Fetch conversation failed: ${apiResponse.status}`);
+    return apiResponse.json();
   }
 
-  async function fetchAllConversations(orgId) {
-    const url = `https://claude.ai/api/organizations/${orgId}/chat_conversations`;
-    const response = await fetch(url, { credentials: 'include', headers: { Accept: 'application/json' } });
-    if (!response.ok) throw new Error(`Fetch conversations failed: ${response.status}`);
-    return response.json();
+  async function fetchAllConversationsFromApi(orgId) {
+    const apiUrl = `https://claude.ai/api/organizations/${orgId}/chat_conversations`;
+    const apiResponse = await fetch(apiUrl, { credentials: 'include', headers: { Accept: 'application/json' } });
+    if (!apiResponse.ok) throw new Error(`Fetch conversations list failed: ${apiResponse.status}`);
+    return apiResponse.json();
+  }
+
+  // Fetch Claude.ai project details for a given project UUID.
+  // Returns { name, uuid, description } or null if unavailable.
+  async function fetchClaudeProjectInfo(orgId, projectUuid) {
+    if (!orgId || !projectUuid) return null;
+    try {
+      const projectResponse = await fetch(
+        `https://claude.ai/api/organizations/${orgId}/projects/${projectUuid}`,
+        { credentials: 'include', headers: { Accept: 'application/json' } }
+      );
+      if (!projectResponse.ok) return null;
+      const projectData = await projectResponse.json();
+      return {
+        name:        projectData.name        || null,
+        uuid:        projectData.uuid        || projectUuid,
+        description: projectData.description || null,
+      };
+    } catch (_projectErr) {
+      return null;
+    }
   }
 
   // ---------------------------------------------------------------------------
-  // Server push helper — routes through background.js (avoids CORS)
+  // Background relay helpers
   // ---------------------------------------------------------------------------
 
-  function pushToServerViaBackground(filename, content) {
+  function relayToBackground(messagePayload) {
     return new Promise(resolve => {
-      chrome.runtime.sendMessage({ action: 'pushToServer', filename, content }, response => {
+      chrome.runtime.sendMessage(messagePayload, response => {
         resolve(response || { success: false, error: 'No response from background' });
       });
     });
   }
 
+  function pushLegacyJsonlViaBackground(filename, jsonlContent) {
+    return relayToBackground({ action: 'pushToServer', filename, content: jsonlContent });
+  }
+
+  function pushIncomingViaBackground(incomingPayload) {
+    return relayToBackground({ action: 'pushToIncoming', ...incomingPayload });
+  }
+
   // ---------------------------------------------------------------------------
-  // Export helpers — ZIP builder shared by single + bulk flows
+  // Structured incoming export — primary path when PiQuix project is selected
   // ---------------------------------------------------------------------------
 
-  function buildSingleExportContent(data, request) {
-    const { format, includeChats, includeThinking, includeMetadata, includeArtifacts } = request;
-    const id = request.conversationId;
+  async function handleIncomingExport(request, sendResponse) {
+    const { orgId, orgName, conversationId, projectFolder, projectName, tabUrl } = request;
+
+    // Fetch conversation
+    let conversationData;
+    try {
+      conversationData = await fetchConversationFromApi(orgId, conversationId);
+    } catch (fetchErr) {
+      sendResponse({ success: false, error: fetchErr.message });
+      return;
+    }
+
+    if (!conversationData || !conversationData.chat_messages || !Array.isArray(conversationData.chat_messages)) {
+      sendResponse({ success: false, error: 'Invalid conversation data. Refresh and try again.' });
+      return;
+    }
+
+    conversationData.model = inferModel(conversationData);
+
+    // Enrich with Claude.ai project name (non-blocking — fails gracefully)
+    let claudeaiProjectName = null;
+    let claudeaiProjectUuid = conversationData.project_uuid || null;
+    if (claudeaiProjectUuid && orgId) {
+      const projectInfo = await fetchClaudeProjectInfo(orgId, claudeaiProjectUuid);
+      if (projectInfo) claudeaiProjectName = projectInfo.name;
+    }
+
+    const exportTimestamp = getPiQTimestamp();
+    const chatSlug        = generateChatSlug(conversationData.name);
+    const conversationUrl = tabUrl || `https://claude.ai/chat/${conversationId}`;
+
+    // Collect image assets (non-fatal)
+    let imageAssets = [];
+    try {
+      imageAssets = await collectImageAssets(conversationData, exportTimestamp);
+    } catch (_assetErr) {
+      console.warn('PiQPull: Image asset collection failed:', _assetErr);
+    }
+
+    // Collect artifacts for disk write
+    const artifactFiles = collectArtifactsForTransport(conversationData);
+
+    // Build artifacts manifest (filenames only — content goes in separate transport array)
+    const artifactsManifest = artifactFiles.map(af => ({
+      filename: af.filename,
+      size_chars: af.content ? af.content.length : 0,
+    }));
+
+    // Build v2 payload
+    const exportPayload = buildExportPayload(
+      conversationData,
+      conversationId,
+      conversationUrl,
+      projectFolder,
+      projectName,
+      imageAssets,
+      exportTimestamp,
+      orgId,
+      orgName || null,
+      claudeaiProjectName,
+      claudeaiProjectUuid,
+      artifactsManifest
+    );
+
+    // Transport: strip data_base64 out of image manifest (server gets it in separate array)
+    const imageAssetsForTransport = imageAssets.map(asset => ({
+      asset_filename: asset.asset_filename,
+      data_base64:    asset.data_base64,
+      mime_type:      asset.mime_type
+    }));
+
+    const serverResult = await pushIncomingViaBackground({
+      projectFolder,
+      chatSlug,
+      conversationId,
+      exportPayload,
+      imageAssets:   imageAssetsForTransport,
+      artifactFiles: artifactFiles.map(af => ({ filename: af.filename, content: af.content })),
+    });
+
+    if (!serverResult.success) {
+      sendResponse({ success: false, error: `Server error: ${serverResult.error}` });
+      return;
+    }
+
+    recordExportTimestamp(conversationId);
+    sendResponse({ success: true, data: serverResult.data });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Legacy browser-download export
+  // ---------------------------------------------------------------------------
+
+  function buildDownloadContent(conversationData, request) {
+    const { format, includeChats, includeThinking, includeMetadata, includeArtifacts, conversationId } = request;
     switch (format) {
-      case 'markdown':
-        return {
-          content: convertToMarkdown(data, includeMetadata, id, includeArtifacts, includeThinking),
-          filename: `${data.name || id}.md`,
-          type: 'text/markdown'
-        };
-      case 'text':
-        return {
-          content: convertToText(data, includeMetadata, includeArtifacts, includeThinking),
-          filename: `${data.name || id}.txt`,
-          type: 'text/plain'
-        };
-      case 'jsonl':
-        return {
-          content: convertToJSONL(data, id),
-          filename: `${data.name || id}.jsonl`,
-          type: 'application/x-ndjson'
-        };
-      default:
-        return {
-          content: JSON.stringify(data, null, 2),
-          filename: `${data.name || id}.json`,
-          type: 'application/json'
-        };
+      case 'markdown': return {
+        content:  convertToMarkdown(conversationData, includeMetadata, conversationId, includeArtifacts, includeThinking),
+        filename: `${conversationData.name || conversationId}.md`, mimeType: 'text/markdown'
+      };
+      case 'text': return {
+        content:  convertToText(conversationData, includeMetadata, includeArtifacts, includeThinking),
+        filename: `${conversationData.name || conversationId}.txt`, mimeType: 'text/plain'
+      };
+      case 'jsonl': return {
+        content:  convertToJSONL(conversationData, conversationId),
+        filename: `${conversationData.name || conversationId}.jsonl`, mimeType: 'application/x-ndjson'
+      };
+      default: return {
+        content:  JSON.stringify(conversationData, null, 2),
+        filename: `${conversationData.name || conversationId}.json`, mimeType: 'application/json'
+      };
     }
   }
 
-  async function handleSingleExport(data, request, sendResponse) {
+  async function handleLegacyDownloadExport(conversationData, request, sendResponse) {
     const { extractArtifacts: doNested, flattenArtifacts: doFlat,
             includeChats, artifactFormat, conversationId, serverPush } = request;
 
     const artifactFiles = (doNested || doFlat)
-      ? extractArtifactFiles(data, artifactFormat || 'original')
-      : [];
+      ? extractArtifactFiles(conversationData, artifactFormat || 'original') : [];
 
     if ((doNested || doFlat) && artifactFiles.length > 0) {
-      const zip = new JSZip();
-      const { content: convContent, filename: convFilename } = buildSingleExportContent(data, request);
-
+      const zipArchive = new JSZip();
+      const { content: convContent, filename: convFilename } = buildDownloadContent(conversationData, request);
       if (includeChats !== false) {
         doFlat && !doNested
-          ? zip.folder('Chats').file(convFilename, convContent)
-          : zip.file(convFilename, convContent);
+          ? zipArchive.folder('Chats').file(convFilename, convContent)
+          : zipArchive.file(convFilename, convContent);
       }
-
       if (doNested) {
-        const artifactsFolder = includeChats !== false ? zip.folder('artifacts') : zip;
-        for (const af of artifactFiles) artifactsFolder.file(af.filename, af.content);
+        const af = includeChats !== false ? zipArchive.folder('artifacts') : zipArchive;
+        for (const f of artifactFiles) af.file(f.filename, f.content);
       }
-
       if (doFlat && !doNested) {
-        const artifactsFolder = zip.folder('Artifacts');
-        for (const af of artifactFiles) {
-          artifactsFolder.file(`${data.name || conversationId}_${af.filename}`, af.content);
-        }
+        const af = zipArchive.folder('Artifacts');
+        for (const f of artifactFiles) af.file(`${conversationData.name || conversationId}_${f.filename}`, f.content);
       }
-
-      const blob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${data.name || conversationId}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const zipBlob = await zipArchive.generateAsync({ type: 'blob' });
+      const url     = URL.createObjectURL(zipBlob);
+      const anchor  = document.createElement('a');
+      anchor.href = url; anchor.download = `${conversationData.name || conversationId}.zip`;
+      document.body.appendChild(anchor); anchor.click(); document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
     } else {
-      if (includeChats === false) {
-        sendResponse({ success: false, error: 'Nothing to export. Enable "Chats" or an Artifacts option.' });
-        return;
-      }
-      const { content, filename, type } = buildSingleExportContent(data, request);
-      downloadFile(content, filename, type);
+      if (includeChats === false) { sendResponse({ success: false, error: 'Nothing to export. Enable Chats or Artifacts.' }); return; }
+      const { content, filename, mimeType } = buildDownloadContent(conversationData, request);
+      downloadFile(content, filename, mimeType);
     }
 
-    // Server push (non-blocking)
     if (serverPush) {
-      const jsonlContent = convertToJSONL(data, conversationId);
-      const ts = getPiQTimestamp();
-      const safeName = (data.name || conversationId).replace(/[<>:"/\\|?*]/g, '_');
-      pushToServerViaBackground(`piqpull-claude-${safeName}-${ts}.jsonl`, jsonlContent)
-        .then(r => { if (!r.success) console.warn('PiQPull: server push failed:', r.error); });
+      const ts       = getPiQTimestamp();
+      const safeName = (conversationData.name || conversationId).replace(/[<>:"/\\|?*]/g, '_');
+      pushLegacyJsonlViaBackground(`piqpull-claude-${safeName}-${ts}.jsonl`, convertToJSONL(conversationData, conversationId))
+        .then(r => { if (!r.success) console.warn('PiQPull: legacy push failed:', r.error); });
     }
 
     recordExportTimestamp(conversationId);
@@ -158,155 +252,149 @@ if (window.piqPullContentScriptLoaded) {
   }
 
   // ---------------------------------------------------------------------------
+  // Bulk export
+  // ---------------------------------------------------------------------------
+
+  async function handleBulkExport(request, sendResponse) {
+    const conversations = await fetchAllConversationsFromApi(request.orgId);
+    const { format, includeChats, includeThinking, includeMetadata, includeArtifacts,
+            extractArtifacts: doNested, flattenArtifacts: doFlat, artifactFormat, serverPush } = request;
+
+    const zipArchive    = new JSZip();
+    const allJsonlLines = [];
+    let   successCount  = 0;
+    const failedNames   = [];
+
+    for (const conv of conversations) {
+      try {
+        const convData = await fetchConversationFromApi(request.orgId, conv.uuid);
+        convData.model = inferModel(convData);
+        const safeName = (conv.name || conv.uuid).replace(/[<>:"/\\|?*]/g, '_');
+        const artifactFiles = (doNested || doFlat)
+          ? extractArtifactFiles(convData, artifactFormat || 'original') : [];
+
+        if (includeChats === false && artifactFiles.length === 0) { await new Promise(r => setTimeout(r, 500)); continue; }
+
+        let exportContent, exportFilename;
+        switch (format) {
+          case 'markdown': exportContent = convertToMarkdown(convData, includeMetadata, conv.uuid, includeArtifacts, includeThinking); exportFilename = `${safeName}.md`; break;
+          case 'text':     exportContent = convertToText(convData, includeMetadata, includeArtifacts, includeThinking); exportFilename = `${safeName}.txt`; break;
+          case 'jsonl':    exportContent = convertToJSONL(convData, conv.uuid); exportFilename = `${safeName}.jsonl`; break;
+          default:         exportContent = JSON.stringify(convData, null, 2); exportFilename = `${safeName}.json`;
+        }
+
+        if (doFlat && !doNested) {
+          if (includeChats !== false) zipArchive.folder('Chats').file(exportFilename, exportContent);
+          if (artifactFiles.length > 0) {
+            const af = zipArchive.folder('Artifacts');
+            for (const f of artifactFiles) af.file(`${safeName}_${f.filename}`, f.content);
+          }
+        } else if (doNested) {
+          const cf = zipArchive.folder(safeName);
+          if (includeChats !== false) cf.file(exportFilename, exportContent);
+          if (artifactFiles.length > 0) {
+            const af = includeChats !== false ? cf.folder('artifacts') : cf;
+            for (const f of artifactFiles) af.file(f.filename, f.content);
+          }
+        } else {
+          if (includeChats !== false) zipArchive.file(exportFilename, exportContent);
+        }
+
+        if (serverPush) allJsonlLines.push(convertToJSONL(convData, conv.uuid));
+        successCount++;
+      } catch (convErr) {
+        failedNames.push(conv.name || conv.uuid);
+        console.warn('PiQPull: bulk failed for:', conv.name, convErr);
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    const ts     = getPiQTimestamp();
+    const prefix = doFlat && !doNested && includeChats === false ? 'piqpull-claude-artifacts' : 'piqpull-claude-exports';
+    const zipBlob = await zipArchive.generateAsync({ type: 'blob' });
+    const url     = URL.createObjectURL(zipBlob);
+    const anchor  = document.createElement('a');
+    anchor.href = url; anchor.download = `${prefix}-${ts}.zip`;
+    document.body.appendChild(anchor); anchor.click(); document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+
+    if (serverPush && allJsonlLines.length > 0) {
+      pushLegacyJsonlViaBackground(`piqpull-claude-bulk-${ts}.jsonl`, allJsonlLines.join('\n'))
+        .then(r => { if (!r.success) console.warn('PiQPull: bulk server push failed:', r.error); });
+    }
+
+    recordExportTimestamps(conversations.map(c => c.uuid).filter(id => !failedNames.some(n => n.includes(id))));
+
+    if (failedNames.length > 0) {
+      sendResponse({ success: true, count: successCount, warnings: `Exported ${successCount}. Failures: ${failedNames.join('; ')}` });
+    } else {
+      sendResponse({ success: true, count: successCount });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Message listener
   // ---------------------------------------------------------------------------
 
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 
-    // Auto-detect org ID
+    // Detect org ID AND org name from /api/organizations
     if (request.action === 'detectOrgId') {
-      fetch('https://claude.ai/api/organizations', {
-        credentials: 'include',
-        headers: { Accept: 'application/json' }
-      })
+      fetch('https://claude.ai/api/organizations', { credentials: 'include', headers: { Accept: 'application/json' } })
         .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-        .then(orgs => {
-          if (!Array.isArray(orgs) || orgs.length === 0) throw new Error('No organizations found');
-          const chatOrg = orgs.find(o => o.capabilities && o.capabilities.includes('chat'));
-          const orgId = chatOrg ? chatOrg.uuid : orgs[0].uuid;
-          sendResponse({ success: true, orgId });
+        .then(orgList => {
+          if (!Array.isArray(orgList) || orgList.length === 0) throw new Error('No organizations found');
+          const chatOrg = orgList.find(org => org.capabilities && org.capabilities.includes('chat'));
+          const org     = chatOrg || orgList[0];
+          // Persist org name alongside org ID for use in export payloads
+          chrome.storage.sync.set({ organizationId: org.uuid, orgName: org.name || null });
+          sendResponse({ success: true, orgId: org.uuid, orgName: org.name || null });
         })
         .catch(err => sendResponse({ success: false, error: err.message }));
       return true;
     }
 
-    // Single conversation export
+    // Structured export → /export/incoming
+    if (request.action === 'exportToIncoming') {
+      handleIncomingExport(request, sendResponse).catch(err => {
+        sendResponse({ success: false, error: err.message, details: err.stack });
+      });
+      return true;
+    }
+
+    // Legacy browser-download export
     if (request.action === 'exportConversation') {
-      fetchConversation(request.orgId, request.conversationId)
-        .then(data => {
-          if (!data || !data.chat_messages || !Array.isArray(data.chat_messages)) {
+      fetchConversationFromApi(request.orgId, request.conversationId)
+        .then(conversationData => {
+          if (!conversationData || !conversationData.chat_messages || !Array.isArray(conversationData.chat_messages)) {
             throw new Error('Invalid conversation data. Refresh and try again.');
           }
-          data.model = inferModel(data);
-          return handleSingleExport(data, request, sendResponse);
+          conversationData.model = inferModel(conversationData);
+          return handleLegacyDownloadExport(conversationData, request, sendResponse);
         })
         .catch(err => sendResponse({ success: false, error: err.message, details: err.stack }));
       return true;
     }
 
-    // Bulk export
+    // Bulk ZIP export
     if (request.action === 'exportAllConversations') {
-      fetchAllConversations(request.orgId)
-        .then(async conversations => {
-          const { format, includeChats, includeThinking, includeMetadata, includeArtifacts,
-                  extractArtifacts: doNested, flattenArtifacts: doFlat,
-                  artifactFormat, serverPush } = request;
-
-          const zip = new JSZip();
-          const allJsonl = [];
-          let included = 0;
-          const errors = [];
-
-          for (const conv of conversations) {
-            try {
-              const data = await fetchConversation(request.orgId, conv.uuid);
-              data.model = inferModel(data);
-              const artifactFiles = (doNested || doFlat)
-                ? extractArtifactFiles(data, artifactFormat || 'original') : [];
-
-              if (includeChats === false && artifactFiles.length === 0) {
-                await new Promise(r => setTimeout(r, 500));
-                continue;
-              }
-
-              const safeName = (conv.name || conv.uuid).replace(/[<>:"/\\|?*]/g, '_');
-              let content, filename;
-
-              switch (format) {
-                case 'markdown':
-                  content = convertToMarkdown(data, includeMetadata, conv.uuid, includeArtifacts, includeThinking);
-                  filename = `${safeName}.md`; break;
-                case 'text':
-                  content = convertToText(data, includeMetadata, includeArtifacts, includeThinking);
-                  filename = `${safeName}.txt`; break;
-                case 'jsonl':
-                  content = convertToJSONL(data, conv.uuid);
-                  filename = `${safeName}.jsonl`; break;
-                default:
-                  content = JSON.stringify(data, null, 2);
-                  filename = `${safeName}.json`;
-              }
-
-              if (doFlat && !doNested) {
-                if (includeChats !== false) zip.folder('Chats').file(filename, content);
-                if (artifactFiles.length > 0) {
-                  const af = zip.folder('Artifacts');
-                  for (const f of artifactFiles) af.file(`${safeName}_${f.filename}`, f.content);
-                }
-              } else if (doNested) {
-                const convFolder = zip.folder(safeName);
-                if (includeChats !== false) convFolder.file(filename, content);
-                if (artifactFiles.length > 0) {
-                  const af = includeChats !== false ? convFolder.folder('artifacts') : convFolder;
-                  for (const f of artifactFiles) af.file(f.filename, f.content);
-                }
-              } else {
-                if (includeChats !== false) zip.file(filename, content);
-              }
-
-              if (serverPush) allJsonl.push(convertToJSONL(data, conv.uuid));
-              included++;
-            } catch (err) {
-              errors.push(`${conv.name || conv.uuid}: ${err.message}`);
-            }
-            await new Promise(r => setTimeout(r, 500));
-          }
-
-          const ts = getPiQTimestamp();
-          const onlyArtifacts = doFlat && !doNested && includeChats === false;
-          const prefix = onlyArtifacts ? 'piqpull-claude-artifacts' : 'piqpull-claude-exports';
-          const blob = await zip.generateAsync({ type: 'blob' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${prefix}-${ts}.zip`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-
-          // Server push — bulk JSONL
-          if (serverPush && allJsonl.length > 0) {
-            pushToServerViaBackground(`piqpull-claude-bulk-${ts}.jsonl`, allJsonl.join('\n'))
-              .then(r => { if (!r.success) console.warn('PiQPull: server push failed:', r.error); });
-          }
-
-          const exportedIds = conversations.map(c => c.uuid).filter(id => !errors.some(e => e.includes(id)));
-          recordExportTimestamps(exportedIds);
-
-          if (errors.length > 0) {
-            sendResponse({ success: true, count: included, warnings: `Exported ${included}. Failures: ${errors.join('; ')}` });
-          } else {
-            sendResponse({ success: true, count: included });
-          }
-        })
+      handleBulkExport(request, sendResponse)
         .catch(err => sendResponse({ success: false, error: err.message, details: err.stack }));
       return true;
     }
 
-    // Browse page — load conversations list
+    // Browse page: load conversations
     if (request.action === 'loadConversations') {
-      fetchAllConversations(request.orgId)
+      fetchAllConversationsFromApi(request.orgId)
         .then(conversations => sendResponse({ success: true, conversations }))
         .catch(err => sendResponse({ success: false, error: err.message }));
       return true;
     }
 
-    // Browse page — load projects
+    // Browse page: load Claude.ai projects
     if (request.action === 'loadProjects') {
       fetch(`https://claude.ai/api/organizations/${request.orgId}/projects`, {
-        credentials: 'include',
-        headers: { Accept: 'application/json' }
+        credentials: 'include', headers: { Accept: 'application/json' }
       })
         .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .then(projects => sendResponse({ success: true, projects }))
@@ -315,4 +403,4 @@ if (window.piqPullContentScriptLoaded) {
     }
   });
 
-} // end double-injection guard
+} // end injection guard

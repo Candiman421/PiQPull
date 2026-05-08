@@ -20,40 +20,46 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ---------------------------------------------------------------------------
 
   BrowseTable.init({
-    onExport: (id, name) => BrowseExport.exportSingle(BrowseState.orgId, id, name),
-    onView:   (id) => window.open(`https://claude.ai/chat/${id}`, '_blank')
+    onExport: (conversationId, conversationName) =>
+      BrowseExport.exportSingle(BrowseState.orgId, conversationId, conversationName),
+    onView: (conversationId) =>
+      window.open(`https://claude.ai/chat/${conversationId}`, '_blank')
   });
 
   await BrowseState.loadTimestamps();
   await BrowseState.loadPrefs();
+  await BrowseState.loadPiQuixProjectSelection();
 
   const serverPushDefault = await BrowseState.loadServerPush();
-  const serverPushEl = document.getElementById('serverPush');
+  const serverPushEl      = document.getElementById('serverPush');
   if (serverPushEl) serverPushEl.checked = serverPushDefault;
 
-  // Org ID
-  const orgId = await BrowseApi.resolveOrgId();
-  BrowseState.orgId = orgId;
+  // Org ID + org name — resolveOrgId now returns { orgId, orgName }
+  const { orgId, orgName } = await BrowseApi.resolveOrgId();
+  BrowseState.orgId   = orgId;
+  BrowseState.orgName = orgName;
 
   if (!orgId) {
     BrowseTable.showError('Organization ID not found. Open a Claude.ai tab and reload, or configure in Settings.');
     return;
   }
 
-  // Projects (non-fatal — conversations still load if this fails)
+  // Claude.ai projects (non-fatal — conversations still load if this fails)
   try {
-    const projects = await BrowseApi.fetchProjects(orgId);
-    BrowseState.projects = projects;
-    const pMap = {};
-    projects.forEach(p => {
-      const pid  = p.uuid || p.id;
-      const name = p.name || p.title || 'Untitled Project';
-      pMap[pid] = name;
+    const claudeProjects = await BrowseApi.fetchProjects(orgId);
+    BrowseState.projects = claudeProjects;
+    const projectLookup  = {};
+    claudeProjects.forEach(proj => {
+      const projectId   = proj.uuid || proj.id;
+      projectLookup[projectId] = proj.name || proj.title || 'Untitled Project';
     });
-    BrowseState.pMap = pMap;
-  } catch (e) {
-    console.warn('PiQPull: Could not load projects:', e.message);
+    BrowseState.pMap = projectLookup;
+  } catch (projectErr) {
+    console.warn('PiQPull: Could not load Claude.ai projects:', projectErr.message);
   }
+
+  // PiQuix project picker (non-fatal — routing to incoming requires this but export still works)
+  await initPiQuixProjectPicker();
 
   // Conversations
   try {
@@ -61,9 +67,65 @@ document.addEventListener('DOMContentLoaded', async () => {
     BrowseState.all = conversations.map(conv => ({ ...conv, model: inferModel(conv) }));
     BrowseTable.autoSelectNewUpdated();
     BrowseTable.applyFiltersAndSort();
-  } catch (e) {
-    BrowseTable.showError(`Failed to load conversations: ${e.message}`);
+  } catch (convErr) {
+    BrowseTable.showError(`Failed to load conversations: ${convErr.message}`);
     return;
+  }
+
+  // ---------------------------------------------------------------------------
+  // PiQuix project picker init + wiring
+  // ---------------------------------------------------------------------------
+
+  async function initPiQuixProjectPicker() {
+    const selectEl   = document.getElementById('piQuixProjectSelect');
+    const statusEl   = document.getElementById('browseProjectLoadStatus');
+    if (!selectEl) return;
+
+    statusEl.textContent = 'loading…';
+
+    const projectResult = await BrowseApi.fetchPiQuixProjects();
+
+    if (!projectResult || !projectResult.success || !projectResult.piQuixProjects) {
+      statusEl.textContent = '(server offline)';
+      return;
+    }
+
+    statusEl.textContent = '';
+
+    // Group by navSection for option groups
+    const sectionOrder   = [];
+    const sectionBuckets = {};
+
+    for (const proj of projectResult.piQuixProjects) {
+      const sectionKey = proj.navSection || 'OTHER';
+      if (!sectionBuckets[sectionKey]) {
+        sectionBuckets[sectionKey] = [];
+        sectionOrder.push(sectionKey);
+      }
+      sectionBuckets[sectionKey].push(proj);
+    }
+
+    for (const sectionKey of sectionOrder) {
+      const optGroup       = document.createElement('optgroup');
+      optGroup.label       = sectionKey;
+      for (const proj of sectionBuckets[sectionKey]) {
+        const optionEl       = document.createElement('option');
+        optionEl.value       = proj.folder;
+        optionEl.textContent = proj.claudeProject;
+        optionEl.dataset.projectName = proj.claudeProject;
+        if (proj.folder === BrowseState.piQuixProjectFolder) optionEl.selected = true;
+        optGroup.appendChild(optionEl);
+      }
+      selectEl.appendChild(optGroup);
+    }
+
+    // Wire selection change
+    selectEl.addEventListener('change', async (e) => {
+      const selectedOption = e.target.selectedOptions[0];
+      const folder         = e.target.value;
+      const projectName    = selectedOption ? (selectedOption.dataset.projectName || '') : '';
+      await BrowseState.savePiQuixProjectSelection(folder, projectName);
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -71,13 +133,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ---------------------------------------------------------------------------
 
   // Search
-  const searchInput = document.getElementById('searchInput');
-  searchInput.addEventListener('input', e => {
+  const searchInputEl = document.getElementById('searchInput');
+  searchInputEl.addEventListener('input', (e) => {
     document.getElementById('searchBox').classList.toggle('has-text', !!e.target.value);
     BrowseTable.applyFiltersAndSort();
   });
   document.getElementById('clearSearch').addEventListener('click', () => {
-    searchInput.value = '';
+    searchInputEl.value = '';
     document.getElementById('searchBox').classList.remove('has-text');
     BrowseTable.applyFiltersAndSort();
   });
@@ -85,15 +147,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Status filter dropdown
   const filterBtn      = document.getElementById('filterBtn');
   const filterDropdown = document.getElementById('filterDropdown');
-  filterBtn.addEventListener('click', e => { e.stopPropagation(); filterDropdown.classList.toggle('open'); });
+  filterBtn.addEventListener('click', (e) => { e.stopPropagation(); filterDropdown.classList.toggle('open'); });
   document.addEventListener('click', () => filterDropdown.classList.remove('open'));
-  filterDropdown.addEventListener('click', e => e.stopPropagation());
+  filterDropdown.addEventListener('click', (e) => e.stopPropagation());
 
-  document.querySelectorAll('.filter-option').forEach(opt => {
-    opt.addEventListener('click', () => {
-      BrowseState.statusFilter = opt.dataset.value;
-      document.querySelectorAll('.filter-option').forEach(o => o.classList.remove('selected'));
-      opt.classList.add('selected');
+  document.querySelectorAll('.filter-option').forEach(optionEl => {
+    optionEl.addEventListener('click', () => {
+      BrowseState.statusFilter = optionEl.dataset.value;
+      document.querySelectorAll('.filter-option').forEach(el => el.classList.remove('selected'));
+      optionEl.classList.add('selected');
       filterBtn.classList.toggle('active', BrowseState.statusFilter !== 'all');
       filterDropdown.classList.remove('open');
       BrowseTable.applyFiltersAndSort();
@@ -102,20 +164,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelector('.filter-option[data-value="all"]')?.classList.add('selected');
 
   // Checkbox dependencies — chats gates thinking / metadata / inline artifacts
-  const chatsEl = document.getElementById('includeChats');
-  const gatedEls = ['includeThinking', 'includeMetadata', 'includeArtifacts']
-    .map(id => document.getElementById(id));
+  const chatsCheckbox = document.getElementById('includeChats');
+  const gatedCheckboxes = ['includeThinking', 'includeMetadata', 'includeArtifacts']
+    .map(elId => document.getElementById(elId));
 
-  function syncGated() {
-    const enabled = chatsEl.checked;
-    gatedEls.forEach(el => {
+  function syncGatedCheckboxes() {
+    const chatsEnabled = chatsCheckbox.checked;
+    gatedCheckboxes.forEach(el => {
       if (!el) return;
-      el.disabled = !enabled;
-      if (!enabled) el.checked = false;
+      el.disabled = !chatsEnabled;
+      if (!chatsEnabled) el.checked = false;
     });
   }
-  chatsEl.addEventListener('change', syncGated);
-  syncGated();
+  chatsCheckbox.addEventListener('change', syncGatedCheckboxes);
+  syncGatedCheckboxes();
 
   // Export all / selected
   document.getElementById('exportAllBtn').addEventListener('click', () => {
@@ -126,36 +188,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   const settingsBtn      = document.getElementById('settingsBtn');
   const settingsDropdown = document.getElementById('settingsDropdown');
 
-  settingsBtn.addEventListener('click', e => {
+  settingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     settingsDropdown.classList.toggle('open');
     if (settingsDropdown.classList.contains('open')) refreshSettingsDisplay();
   });
   document.addEventListener('click', () => settingsDropdown.classList.remove('open'));
-  settingsDropdown.addEventListener('click', e => e.stopPropagation());
+  settingsDropdown.addEventListener('click', (e) => e.stopPropagation());
 
   function refreshSettingsDisplay() {
-    const orgEl = document.getElementById('orgIdDisplay');
-    if (orgEl) {
-      orgEl.textContent = BrowseState.orgId ? `${BrowseState.orgId.substring(0, 8)}...` : 'Not set';
-      orgEl.title       = BrowseState.orgId || '';
+    const orgDisplayEl = document.getElementById('orgIdDisplay');
+    if (orgDisplayEl) {
+      orgDisplayEl.textContent = BrowseState.orgId
+        ? `${BrowseState.orgId.substring(0, 8)}…`
+        : 'Not set';
+      orgDisplayEl.title = BrowseState.orgId || '';
     }
-    const themeEl = document.getElementById('themeLabel');
-    if (themeEl) {
-      const current = document.documentElement.getAttribute('data-theme') || 'dark';
-      themeEl.textContent = current === 'dark' ? 'Dark' : 'Light';
+    const themeLabelEl = document.getElementById('themeLabel');
+    if (themeLabelEl) {
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+      themeLabelEl.textContent = currentTheme === 'dark' ? 'Dark' : 'Light';
     }
-    const dfEl = document.getElementById('dateFormatLabel');
-    if (dfEl) dfEl.textContent = BrowseState.dateFormat === 'mdy' ? 'M/D/Y' : 'D/M/Y';
-    const tfEl = document.getElementById('timeFormatLabel');
-    if (tfEl) tfEl.textContent = BrowseState.timeFormat;
+    const dateFmtEl = document.getElementById('dateFormatLabel');
+    if (dateFmtEl) dateFmtEl.textContent = BrowseState.dateFormat === 'mdy' ? 'M/D/Y' : 'D/M/Y';
+    const timeFmtEl = document.getElementById('timeFormatLabel');
+    if (timeFmtEl) timeFmtEl.textContent = BrowseState.timeFormat;
   }
 
   document.getElementById('themeToggle').addEventListener('click', () => {
-    const current = document.documentElement.getAttribute('data-theme') || 'dark';
-    const next    = current === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('piqpull-theme', next);
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    const nextTheme    = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', nextTheme);
+    localStorage.setItem('piqpull-theme', nextTheme);
     refreshSettingsDisplay();
   });
 
@@ -164,7 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       await navigator.clipboard.writeText(BrowseState.orgId);
       BrowseExport.showToast('Org ID copied.');
-    } catch {
+    } catch (_clipErr) {
       BrowseExport.showToast('Copy failed.', true);
     }
     settingsDropdown.classList.remove('open');
@@ -193,31 +257,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('toggleDateFormat').addEventListener('click', () => {
-    const next = BrowseState.dateFormat === 'mdy' ? 'dmy' : 'mdy';
-    BrowseState.saveDateFormat(next);
+    const nextFormat = BrowseState.dateFormat === 'mdy' ? 'dmy' : 'mdy';
+    BrowseState.saveDateFormat(nextFormat);
     refreshSettingsDisplay();
     BrowseTable.render();
   });
 
   document.getElementById('toggleTimeFormat').addEventListener('click', () => {
-    const next = BrowseState.timeFormat === '12h' ? '24h' : '12h';
-    BrowseState.saveTimeFormat(next);
+    const nextFormat = BrowseState.timeFormat === '12h' ? '24h' : '12h';
+    BrowseState.saveTimeFormat(nextFormat);
     refreshSettingsDisplay();
     BrowseTable.render();
   });
 
-  // Test connection — class-driven status, no inline color
   document.getElementById('testConnection').addEventListener('click', async () => {
-    const statusEl = document.getElementById('connectionStatus');
-    statusEl.textContent = 'Testing...';
-    statusEl.classList.remove('conn-ok', 'conn-error');
+    const connectionStatusEl = document.getElementById('connectionStatus');
+    connectionStatusEl.textContent = 'Testing…';
+    connectionStatusEl.classList.remove('conn-ok', 'conn-error');
     try {
-      const result = await BrowseApi.fetchConversations(BrowseState.orgId);
-      statusEl.textContent = `OK (${result.length})`;
-      statusEl.classList.add('conn-ok');
-    } catch {
-      statusEl.textContent = 'Error';
-      statusEl.classList.add('conn-error');
+      const conversations = await BrowseApi.fetchConversations(BrowseState.orgId);
+      connectionStatusEl.textContent = `OK (${conversations.length})`;
+      connectionStatusEl.classList.add('conn-ok');
+    } catch (_testErr) {
+      connectionStatusEl.textContent = 'Error';
+      connectionStatusEl.classList.add('conn-error');
     }
   });
 });

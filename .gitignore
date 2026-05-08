@@ -1,0 +1,18 @@
+# PiQPull .gitignore
+# _local/ is untracked scratch space — dev notes, test exports, generated indexes
+_local/
+
+# Bulk export ZIPs (unorganized dumps, not committed)
+*.zip
+
+# Node / package manager
+node_modules/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor artifacts
+*.suo
+.vscode/

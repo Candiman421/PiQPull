@@ -171,3 +171,63 @@ select {
   padding-top: 10px;
   border-top: 1px solid var(--border-color);
 }
+
+/* Route note — shown when a project is selected */
+.route-note {
+  font-size: 11px;
+  color: #8b9ab0;
+  margin: 4px 0 0 0;
+  line-height: 1.5;
+}
+
+.route-note code {
+  font-size: 10px;
+  color: #a0b8d0;
+  background: rgba(100, 140, 200, 0.1);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.route-note-detail {
+  color: #607080;
+  font-size: 10px;
+  display: block;
+  margin-top: 2px;
+}
+
+.route-note.hidden { display: none; }
+
+/* Inline context note shown when incoming mode is active */
+.incoming-mode-note {
+  font-size: 10px;
+  color: #607080;
+  background: rgba(80, 100, 160, 0.08);
+  border-left: 2px solid #405080;
+  padding: 5px 8px;
+  margin: 8px 0 2px;
+  border-radius: 2px;
+  line-height: 1.4;
+}
+
+.incoming-mode-note.hidden { display: none; }
+
+/* Project picker group */
+.option-group {
+  margin: 8px 0 10px;
+}
+
+.project-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin: 0 0 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.project-load-status {
+  font-size: 10px;
+  color: #607080;
+  font-weight: 400;
+}

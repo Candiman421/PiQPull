@@ -12,17 +12,34 @@
   </div>
 
   <div class="inner">
+
     <div id="setupNotice" class="status info" hidden>
       Organization ID not configured.
       <a href="#" id="openOptions">Click here to set it up</a>
     </div>
 
+    <!-- PiQuix project routing — drives /export/incoming when selected -->
+    <div class="option-group" id="projectPickerGroup">
+      <label class="project-label" for="piQuixProjectSelect">
+        PiQuix Project
+        <span id="projectLoadStatus" class="project-load-status"></span>
+      </label>
+      <select id="piQuixProjectSelect">
+        <option value="">— none / download to Chrome only —</option>
+      </select>
+      <!-- Route note — folder name injected dynamically by popup.js -->
+      <div id="projectRouteNote" class="route-note hidden">
+        Files → <code id="projectRoutePath">incoming\…\{chat}\</code>
+        <span class="route-note-detail">· all artifacts auto-extracted</span>
+      </div>
+    </div>
+
     <div class="options">
       <div class="export-row">
         <label>
-          Chat format:
+          Format:
           <select id="format">
-            <option value="json">JSON</option>
+            <option value="json" selected>JSON</option>
             <option value="markdown">Markdown</option>
             <option value="text">Plain Text</option>
             <option value="jsonl">JSONL</option>
@@ -32,42 +49,47 @@
           <input type="checkbox" id="includeChats" checked>
           Chats
         </label>
-        <label title="Include extended thinking blocks">
-          <input type="checkbox" id="includeThinking">
-          Extended Thinking
+        <label title="Include extended thinking blocks (Claude's reasoning)">
+          <input type="checkbox" id="includeThinking" checked>
+          Thinking
         </label>
-        <label title="Add conversation metadata at the top of exported files">
-          <input type="checkbox" id="includeMetadata">
+        <label title="Add conversation metadata — model, timestamps, URL, org">
+          <input type="checkbox" id="includeMetadata" checked>
           Metadata
         </label>
       </div>
 
       <div class="export-row">
         <label>
-          Artifact format:
+          Artifacts:
           <select id="artifactFormat">
-            <option value="original">Original</option>
+            <option value="original" selected>Original</option>
             <option value="markdown">Markdown</option>
             <option value="text">Plain Text</option>
             <option value="json">JSON</option>
           </select>
         </label>
-        <label title="Include artifacts inline within the conversation text">
+        <label title="Embed artifacts inline in conversation text (legacy download only)">
           <input type="checkbox" id="includeArtifacts">
-          Inline Artifacts
+          Inline
         </label>
-        <label title="Extract artifacts as separate files in nested folders">
+        <label title="Extract artifacts as separate files in subfolders (legacy download only)">
           <input type="checkbox" id="extractArtifacts">
-          Nested Artifacts
+          Nested
         </label>
-        <label title="Flatten artifacts — no subfolders, conversation name prefix">
+        <label title="Flat artifact extraction — no subfolders (legacy download only)">
           <input type="checkbox" id="flattenArtifacts">
-          Flat Artifacts
+          Flat
         </label>
-        <label title="Also push JSONL to PiQuix server at localhost:7432">
+        <label title="Also push JSONL to PiQuix server at localhost:7432/export/write">
           <input type="checkbox" id="serverPush">
-          Push to PiQuix
+          PiQuix Push
         </label>
+      </div>
+
+      <!-- Context note: Artifacts/Format/Thinking/Metadata are ignored when a project is selected -->
+      <div id="incomingModeNote" class="incoming-mode-note hidden">
+        ℹ️ Project selected — raw JSON + artifacts always captured. Format/Inline/Nested/Flat ignored.
       </div>
     </div>
 
