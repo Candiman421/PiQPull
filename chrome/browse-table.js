@@ -1,10 +1,9 @@
-// PiQPull — Browse: Table
-// Single job: render the conversations table and manage sort/select UI state.
-// Reads BrowseState, BrowseFormat. Fires callbacks — never calls export directly.
+// PiQPull — Browse: Table v1.2.0
+// FIX Bug 1: autoSelectNewUpdated no longer calls render() internally.
+//            Caller (browse.js) calls applyFiltersAndSort first, then autoSelectNewUpdated.
 
 const BrowseTable = (() => {
 
-  // Callbacks wired by browse.js
   let onExport = null;
   let onView   = null;
 
@@ -158,7 +157,6 @@ const BrowseTable = (() => {
     html += '</tbody></table>';
     container.innerHTML = html;
 
-    // Wire row-level events
     container.querySelectorAll('.btn-export').forEach(btn => {
       btn.addEventListener('click', () => onExport && onExport(btn.dataset.id, btn.dataset.name));
     });
@@ -220,13 +218,13 @@ const BrowseTable = (() => {
     if (sa) sa.checked = BrowseState.selected.size > 0;
   }
 
+  // FIX Bug 1: autoSelectNewUpdated no longer calls render() — caller handles rendering
   function autoSelectNewUpdated() {
     BrowseState.selected.clear();
     BrowseState.filtered.forEach(conv => {
       if (BrowseState.isNewOrUpdated(conv)) BrowseState.selected.add(conv.uuid);
     });
-    render();
-    updateExportButtonText();
+    updateExportButtonText();  // just update the button, no render
   }
 
   function updateExportButtonText() {

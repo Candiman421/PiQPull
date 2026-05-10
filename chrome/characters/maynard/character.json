@@ -1,0 +1,94 @@
+{
+  "_comment": "Convention: folder=maynard → image=maynard.png. character.json is fixed name.",
+  "id":     "maynard",
+  "name":   "Maynard James Keenan",
+  "label":  "Maynard (Tool · APC · Puscifer)",
+  "credit": "Verified interviews — BrainyQuote, Wikiquote, A Perfect Union of Contrary Things (2016)",
+  "colors": ["#c8a0ff", "#9060d0", "#e0c0ff", "#b080f0"],
+
+  "phrases": {
+    "init":         [
+      "A circle has no beginning and no end. Put circles over circles — you get a spiral. We export {n} conversations now.",
+      "Life is too short not to create something with every breath. {n} conversations{proj}. Let's begin.",
+      "If I can't heal from my art, then how can you heal? {n} conversations. Starting.",
+      "I listen. I write. I live. And now I download {n} conversations. Even that is an act of creation.",
+      "Finding beauty in the dissonance. {n} conversations{proj}. The export commences."
+    ],
+    "fetching":     [
+      "\"{name}\" — finding beauty in the dissonance of API calls.",
+      "Desert, in general, is a good place to find yourself. So is an API. Fetching \"{name}\".",
+      "I listen. I write. I live. I fetch. \"{name}\" now.",
+      "Music — and data — is a force in itself. It needs an outlet. \"{name}\" is that outlet."
+    ],
+    "hasThink":     [
+      "{n} thinking blocks. This body holding me, reminding me of my own mortality. Embrace this moment.",
+      "{n} thoughts captured. Once you take yourself too seriously, the art suffers. These thoughts didn't."
+    ],
+    "hasArts":      ["{n} artifact(s). Everything revolves around the music — and the artifacts. They need an outlet too."],
+    "pushing":      [
+      "\"{name}\" — I'm a pessimist with a sense of responsibility. Pushing anyway. That's all any of us can do.",
+      "On why this export is like a washing machine: you wouldn't get in while it's spinning. But here we go. Pushing \"{name}\"."
+    ],
+    "pushOk":       [
+      "Saved. A perfect union of contrary things — chaos and order, both.",
+      "And if you don't live, you have nothing to write about. Written. Saved.",
+      "Music is about listening. The more you push, the more the magic spreads.",
+      "I'm a pessimist. But even pessimists appreciate a successful push."
+    ],
+    "fetchFail":    ["\"{name}\" failed. I'm the negative Nancy, glass-half-empty-with-a-leak-in-it guy. I expected this."],
+    "pushFail":     ["The server refused \"{name}\". All I can say is: I smell a rat. I don't know what kind. But I smell it."],
+    "retrying":     ["\"{name}\" — attempt {n}. The goal is nonjudgment, nonfiltered acceptance of everything. Even server errors."],
+    "halfway":      ["{pct}%. We're just the medium. The data is the force that needs to flow through us."],
+    "nearEnd":      ["{left} remaining. I can't be a legend yet. Not until this finishes. Then maybe."],
+    "done_all":     ["All {t}. A spiral complete — no beginning, no end, and somehow we made it all the way around."],
+    "done_partial": ["{ok} of {t}. Some are like monkeys in a cage hitting the button. {missed} just wouldn't cooperate."],
+    "cancelled":    ["Cancelled. I'm a pessimist. And I'm responsible enough to accept that."],
+    "zipping":      ["Compressing. Finding beauty even in compression. That's the artist's way."],
+    "zipDone":      ["The archive is ready. Life feeds on life. This is necessary. This is the zip."],
+    "log":          ["Recording the session. For me, life is writing and I can do it anywhere. Even in a log file."]
+  },
+
+  "_sources": [
+    {
+      "text": "A circle is the reflection of eternity. It has no beginning and it has no end — and if you put several circles over each other, then you get a spiral.",
+      "type": "interview",
+      "work": "BrainyQuote",
+      "verified": true
+    },
+    {
+      "text": "For me, life is writing and I can do it anywhere. It doesn't matter where I am. I listen. I write. I live.",
+      "type": "interview",
+      "work": "BrainyQuote",
+      "verified": true
+    },
+    {
+      "text": "The idea is, if I can't heal from my art, then how can you heal?",
+      "type": "interview",
+      "work": "BrainyQuote",
+      "verified": true
+    },
+    {
+      "text": "But you know, I'm the negative-Nancy, curmudgeon, glass-half-empty-with-a-leak-in-it guy — which is basically the fuel that fires me up anyway.",
+      "type": "interview",
+      "work": "BrainyQuote",
+      "verified": true
+    },
+    {
+      "text": "Life is too short not to create something with every breath we draw.",
+      "type": "interview",
+      "work": "A Perfect Union of Contrary Things",
+      "work_type": "book",
+      "year": 2016,
+      "artist": "Maynard James Keenan",
+      "publication": "Hal Leonard Corporation",
+      "verified": true
+    },
+    {
+      "text": "Desert, in general, is a very good place to find yourself. Or lose yourself.",
+      "type": "interview",
+      "work": "Maynard James Keenan — AV Club",
+      "year": 2015,
+      "verified": true
+    }
+  ]
+}

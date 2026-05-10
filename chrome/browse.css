@@ -392,6 +392,9 @@ th {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
   user-select: none;
 }
 
@@ -527,6 +530,7 @@ td { padding: 14px 15px; font-size: 14px; }
   display: flex;
   align-items: center;
   justify-content: center;
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
 
@@ -555,6 +559,7 @@ td { padding: 14px 15px; font-size: 14px; }
   background: rgba(8, 10, 42, 0.88);
   border-radius: 8px;
   padding: 7px 10px;
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   pointer-events: none;
 }
@@ -663,11 +668,16 @@ td { padding: 14px 15px; font-size: 14px; }
   margin-top: 6px;
   max-height: 56px;
   overflow-y: auto;
-  scrollbar-width: none;
   text-align: left;
 }
 
-.piq-orb-log::-webkit-scrollbar { display: none; }
+@supports (scrollbar-width: none) {
+  .piq-orb-log {
+    scrollbar-width: none;        /* Firefox */
+  }
+}
+
+.piq-orb-log::-webkit-scrollbar { display: none; }  /* Chrome/Safari */
 
 .piq-log-line {
   font-size: 8.5px;
@@ -767,3 +777,160 @@ td { padding: 14px 15px; font-size: 14px; }
   font-size: 13px;
   width: auto;
 }
+
+/* ================================================================
+   PiQPull browse.css APPEND — v1.2.0
+   Paste this at the very END of your existing chrome/browse.css.
+   Do not replace the existing file — just add this to the bottom.
+   ================================================================ */
+
+/* ── Spray layer — full-modal overlay above the orb ── */
+.piq-spray-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4100;
+  overflow: hidden;
+}
+
+/* ── Spray line elements (replaced old per-word spans) ──
+   All other styles are set inline per-invocation.
+   This class just establishes the block display baseline. */
+.piq-spray-line {
+  display: block;
+}
+
+/* ── Config gear button on orb sphere ── */
+.piq-orb-config-btn {
+  position: absolute;
+  top: 7%; right: 7%;
+  background: rgba(30, 20, 60, 0.7);
+  border: 1px solid rgba(130, 80, 220, 0.5);
+  color: #b090ff;
+  font-size: 13px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, border-color 0.2s;
+  pointer-events: all;
+  z-index: 4200;
+  margin: 0;
+}
+.piq-orb-config-btn:hover {
+  background: rgba(80, 50, 140, 0.9);
+  border-color: rgba(180, 120, 255, 0.8);
+}
+
+/* ── Character config panel ── */
+.orb-char-config {
+  position: fixed;
+  bottom: 20px; right: 20px;
+  width: 480px; max-width: 92vw;
+  background: rgba(12, 8, 36, 0.97);
+  border: 1px solid rgba(120, 80, 220, 0.5);
+  border-radius: 12px;
+  padding: 14px 16px;
+  z-index: 4300;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+.orb-char-title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.orb-char-config-title {
+  font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: #b090ff;
+}
+.orb-char-close {
+  background: none; border: none;
+  color: #6050a0; cursor: pointer;
+  font-size: 14px; padding: 2px 6px;
+  border-radius: 4px; transition: color 0.2s;
+  width: auto; margin: 0;
+}
+.orb-char-close:hover { color: #c090ff; }
+
+.orb-char-slots {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  margin-bottom: 10px;
+}
+.orb-char-slot   { display: flex; flex-direction: column; gap: 6px; }
+.orb-char-slot-label {
+  font-size: 9px; text-transform: uppercase;
+  letter-spacing: 0.1em; color: #6050a0; font-weight: 600;
+}
+.orb-char-preview {
+  width: 60px; height: 60px; object-fit: cover;
+  border-radius: 8px; border: 1px solid rgba(100, 70, 180, 0.4);
+  background: rgba(20, 10, 50, 0.6); align-self: flex-start;
+}
+.orb-char-select {
+  width: 100%; padding: 5px 8px;
+  background: rgba(20, 10, 50, 0.8);
+  border: 1px solid rgba(100, 70, 180, 0.4);
+  border-radius: 6px; color: #c0b0ff; font-size: 11px; cursor: pointer;
+  appearance: none;
+}
+.orb-char-select:focus { outline: none; border-color: rgba(160, 110, 255, 0.8); }
+.orb-char-credit {
+  font-size: 9px; color: rgba(150, 130, 200, 0.55);
+  font-style: italic; line-height: 1.3; min-height: 2em;
+}
+
+/* ── Color mode toggle ── */
+.orb-char-color-row {
+  display: flex; flex-direction: column; gap: 6px;
+  border-top: 1px solid rgba(80, 60, 140, 0.3);
+  padding-top: 10px; margin-top: 4px;
+}
+.orb-color-toggle { display: flex; gap: 6px; flex-wrap: wrap; }
+.orb-color-btn {
+  flex: 1; padding: 6px 10px;
+  background: rgba(20, 10, 50, 0.7);
+  border: 1px solid rgba(100, 70, 180, 0.35);
+  border-radius: 6px; color: rgba(180, 150, 255, 0.7);
+  font-size: 10px; cursor: pointer; transition: all 0.2s;
+  text-align: center; margin: 0; width: auto;
+}
+.orb-color-btn:hover    { border-color: rgba(160,110,255,0.6); color: #d0b8ff; background: rgba(40,20,90,0.8); }
+.orb-color-btn.active   { background: rgba(80,50,160,0.85); border-color: rgba(180,130,255,0.8); color: #f0e0ff; font-weight: 700; }
+
+/* ── Speed dial ── */
+.orb-speed-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
+}
+.orb-speed-emoji  { font-size: 14px; flex-shrink: 0; }
+.orb-speed-slider {
+  flex: 1; min-width: 0;
+  -webkit-appearance: none; appearance: none;
+  height: 4px; border-radius: 2px;
+  background: linear-gradient(90deg, rgba(80,50,180,0.5), rgba(160,100,255,0.7));
+  outline: none; cursor: pointer;
+}
+.orb-speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: #b090ff;
+  border: 2px solid rgba(200,160,255,0.8); cursor: pointer;
+  box-shadow: 0 0 6px rgba(160,100,255,0.5);
+}
+.orb-speed-value {
+  font-size: 10px; color: #9070d0; font-family: monospace;
+  min-width: 2.8em; text-align: right; flex-shrink: 0;
+}
+
+/* ── Dev hint at bottom of config panel ── */
+.orb-char-hint {
+  font-size: 9px; color: rgba(120, 100, 180, 0.45); font-style: italic;
+  border-top: 1px solid rgba(80, 60, 140, 0.3);
+  padding-top: 8px; margin-top: 4px;
+}
+
+/* ── Remove old legacy static speech bubble styles (if present) ──
+   The old .piq-speech, .piq-speech-bh, .piq-speech-bv, .piq-speech-who,
+   .piq-speech-text, .piq-spray-bh, .piq-spray-bv classes are no longer
+   used — they were replaced by the spray line system.
+   Safe to leave them in — they just won't match anything in the new HTML. */

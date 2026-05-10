@@ -1,103 +1,199 @@
-// PiQPull — Background Service Worker
-// Handles: extension install injection, content script relay,
-//           server push to localhost:7432 (avoids CORS from page context).
+// PiQPull — Background Service Worker v1.2.0
+// Handles all cross-origin fetches: PiQuix server + Claude.ai proxy.
+// No direct DOM access. All communication via chrome.runtime.onMessage.
 
-const PIQUIX_SERVER_BASE = 'http://localhost:7432';
+'use strict';
 
-chrome.runtime.onInstalled.addListener(reinjectOpenClaudeTabs);
+const PIQUIX_SERVER = 'http://localhost:7432';
 
-function reinjectOpenClaudeTabs() {
-  chrome.tabs.query({ url: 'https://claude.ai/*' }, openTabs => {
-    openTabs.forEach(tab => {
+// ── Install: reinject content scripts into open Claude.ai tabs ────────────
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.tabs.query({ url: 'https://claude.ai/*' }, tabs => {
+    if (!tabs) return;
+    for (const tab of tabs) {
       chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files:  ['jszip.min.js', 'utils.js', 'content.js']
-      }).catch(err => console.warn('PiQPull: Could not inject into tab', tab.id, err));
-    });
+        files:  ['jszip.min.js', 'utils.js', 'content.js'],
+      }).catch(err => console.warn('PiQPull: reinject failed for tab', tab.id, err.message));
+    }
   });
+});
+
+// ── Account alias helpers ─────────────────────────────────────────────────
+
+/** @param {string} orgId @param {string|null} orgName @returns {Promise<string>} */
+async function resolveAccountSlug(orgId, orgName) {
+  if (!orgId) return 'unknown';
+  const stored = await new Promise(resolve =>
+    chrome.storage.sync.get(['orgAliases'], s => resolve(s.orgAliases || {})));
+  if (stored[orgId]) return stored[orgId];
+  const match = (orgName || '').match(/^([^@]+)@/);
+  return match ? match[1] : 'unknown';
 }
+
+/** @param {string} orgId @param {string|null} orgName */
+async function trackKnownOrg(orgId, orgName) {
+  if (!orgId) return;
+  const stored = await new Promise(resolve =>
+    chrome.storage.sync.get(['knownOrgs'], s => resolve(s.knownOrgs || {})));
+  if (!stored[orgId]) {
+    stored[orgId] = { orgId, orgName: orgName || '', firstSeen: new Date().toISOString() };
+    chrome.storage.sync.set({ knownOrgs: stored });
+  }
+}
+
+// ── Message router ────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   switch (request.action) {
-    case 'ensureContentScript':   return handleEnsureContentScript(sendResponse);
-    case 'pushToServer':          return handlePushToServer(request, sendResponse);
-    case 'pushToIncoming':        return handlePushToIncoming(request, sendResponse);
-    case 'fetchPiQuixProjects':   return handleFetchPiQuixProjects(sendResponse);
-    default:                      return false;
+    case 'ensureContentScript':   handleEnsureContentScript(sendResponse); return true;
+    case 'pushToServer':          handlePushToServer(request, sendResponse); return true;
+    case 'pushToIncoming':        handlePushToIncoming(request, sendResponse); return true;
+    case 'pushProjectHome':       handlePushProjectHome(request, sendResponse); return true;
+    case 'pushSessionLog':        handlePushSessionLog(request, sendResponse); return true;
+    case 'fetchPiQuixProjects':   handleFetchPiQuixProjects(sendResponse); return true;
+    case 'fetchAccountSlug':      handleFetchAccountSlug(request, sendResponse); return true;
+    case 'saveOrgAlias':          handleSaveOrgAlias(request, sendResponse); return true;
+    case 'getKnownOrgs':          handleGetKnownOrgs(sendResponse); return true;
+    default: return false;
   }
 });
 
+// ── Handlers ─────────────────────────────────────────────────────────────
+
 function handleEnsureContentScript(sendResponse) {
   chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-    if (!tabs || tabs.length === 0) { sendResponse({ success: false, error: 'No active tab found' }); return; }
+    if (!tabs || tabs.length === 0) {
+      sendResponse({ success: false, error: 'No active tab' }); return;
+    }
     chrome.scripting.executeScript(
       { target: { tabId: tabs[0].id }, files: ['jszip.min.js', 'utils.js', 'content.js'] },
-      () => sendResponse({ success: true })
+      () => sendResponse({ success: !chrome.runtime.lastError })
     );
   });
-  return true;
 }
 
 function handlePushToServer(request, sendResponse) {
   const { filename, content } = request;
   postToServer('/export/write', { filename, content })
-    .then(result => sendResponse(result))
-    .catch(err  => sendResponse({ success: false, error: err.message }));
-  return true;
+    .then(r => sendResponse(r))
+    .catch(e => sendResponse({ success: false, error: e.message }));
 }
 
-// Structured incoming push — forwards all fields including orgName and artifactFiles.
 function handlePushToIncoming(request, sendResponse) {
   const {
-    projectFolder,
-    chatSlug,
-    conversationId,
-    exportPayload,
-    imageAssets,
-    artifactFiles,  // [{ filename, content }] — text artifacts for disk write
+    projectFolder, accountSlug, chatSlug, conversationId,
+    exportPayload, imageAssets, artifactFiles,
   } = request;
 
   postToServer('/export/incoming', {
-    projectFolder,
-    chatSlug,
-    conversationId,
-    exportPayload,
-    imageAssets:   imageAssets   || [],
-    artifactFiles: artifactFiles || [],
+    projectFolder:  projectFolder  || '',
+    accountSlug:    accountSlug    || 'unknown',
+    chatSlug:       chatSlug       || 'untitled',
+    conversationId: conversationId || '',
+    exportPayload:  exportPayload  || {},
+    imageAssets:    Array.isArray(imageAssets)   ? imageAssets   : [],
+    artifactFiles:  Array.isArray(artifactFiles) ? artifactFiles : [],
   })
-    .then(result => sendResponse(result))
-    .catch(err  => sendResponse({ success: false, error: err.message }));
+    .then(r => sendResponse(r))
+    .catch(e => sendResponse({ success: false, error: e.message }));
+}
 
-  return true;
+function handlePushProjectHome(request, sendResponse) {
+  const { accountSlug, projectFolder, payload } = request;
+  postToServer('/export/project-home', {
+    accountSlug:   accountSlug   || 'unknown',
+    projectFolder: projectFolder || 'unknown',
+    payload:       payload       || {},
+  })
+    .then(r => sendResponse(r))
+    .catch(e => sendResponse({ success: false, error: e.message }));
+}
+
+function handlePushSessionLog(request, sendResponse) {
+  const { accountSlug, projectFolder, timestamp, logContent } = request;
+  postToServer('/export/session-log', {
+    accountSlug:   accountSlug   || 'unknown',
+    projectFolder: projectFolder || '_no-project',
+    timestamp:     timestamp     || String(Date.now()),
+    logContent:    logContent    || '',
+  })
+    .then(r => sendResponse(r))
+    .catch(e => sendResponse({ success: false, error: e.message }));
 }
 
 function handleFetchPiQuixProjects(sendResponse) {
-  fetch(`${PIQUIX_SERVER_BASE}/api/projects`, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
-    .then(async serverResponse => {
-      if (!serverResponse.ok) { sendResponse({ success: false, error: `Server ${serverResponse.status}` }); return; }
-      const responseData  = await serverResponse.json();
-      const piQuixProjects = (responseData.projects || [])
-        .filter(proj => proj.claudeProject && proj.folder)
-        .map(proj => ({
-          folder:        proj.folder,
-          claudeProject: proj.claudeProject,
-          navSection:    proj.navSection || 'OTHER'
-        }));
+  fetch(`${PIQUIX_SERVER}/api/projects`, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+    .then(async res => {
+      if (!res.ok) { sendResponse({ success: false, error: `Server ${res.status}` }); return; }
+      const data = await res.json();
+      const projects = Array.isArray(data && data.projects) ? data.projects : [];
+      const piQuixProjects = projects
+        .filter(p => p && p.claudeProject && p.folder)
+        .map(p => ({ folder: p.folder, claudeProject: p.claudeProject, navSection: p.navSection || 'OTHER' }));
       sendResponse({ success: true, piQuixProjects });
     })
-    .catch(err => sendResponse({ success: false, error: err.message }));
-  return true;
+    .catch(e => sendResponse({ success: false, error: e.message }));
 }
 
-async function postToServer(endpointPath, bodyPayload) {
-  const serverResponse = await fetch(`${PIQUIX_SERVER_BASE}${endpointPath}`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(bodyPayload)
+function handleFetchAccountSlug(request, sendResponse) {
+  const { orgId, orgName } = request;
+  if (orgId) trackKnownOrg(orgId, orgName || null);
+  resolveAccountSlug(orgId || '', orgName || null)
+    .then(slug => sendResponse({ success: true, accountSlug: slug }))
+    .catch(e  => sendResponse({ success: false, error: e.message, accountSlug: 'unknown' }));
+}
+
+function handleSaveOrgAlias(request, sendResponse) {
+  const { orgId, alias } = request;
+  if (!orgId) { sendResponse({ success: false, error: 'orgId required' }); return; }
+  chrome.storage.sync.get(['orgAliases'], stored => {
+    const aliases = stored.orgAliases || {};
+    if (alias && alias.trim()) {
+      aliases[orgId] = alias.trim();
+    } else {
+      delete aliases[orgId];
+    }
+    chrome.storage.sync.set({ orgAliases: aliases }, () =>
+      sendResponse({ success: true, orgId, alias: aliases[orgId] || null }));
   });
-  if (!serverResponse.ok) {
-    const errorText = await serverResponse.text();
-    return { success: false, error: `Server ${serverResponse.status}: ${errorText}` };
+}
+
+function handleGetKnownOrgs(sendResponse) {
+  chrome.storage.sync.get(['knownOrgs', 'orgAliases'], stored => {
+    const knownOrgs  = stored.knownOrgs  || {};
+    const orgAliases = stored.orgAliases || {};
+    const orgs = Object.values(knownOrgs).map(org => ({
+      orgId:     org.orgId,
+      orgName:   org.orgName    || '',
+      alias:     orgAliases[org.orgId] || null,
+      firstSeen: org.firstSeen || null,
+    }));
+    sendResponse({ success: true, orgs });
+  });
+}
+
+// ── Server communication ──────────────────────────────────────────────────
+
+/** @param {string} path @param {object} body @returns {Promise<{ success: boolean, data?: unknown, error?: string }>} */
+async function postToServer(path, body) {
+  let res;
+  try {
+    res = await fetch(`${PIQUIX_SERVER}${path}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
+    });
+  } catch (netErr) {
+    return { success: false, error: `Network error: ${netErr.message}` };
   }
-  return { success: true, data: await serverResponse.json() };
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    return { success: false, error: `Server ${res.status}: ${text}` };
+  }
+
+  const data = await res.json().catch(() => ({}));
+  return { success: true, data };
 }

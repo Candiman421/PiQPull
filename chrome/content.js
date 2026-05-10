@@ -1,5 +1,5 @@
 // PiQPull — Content Script
-// Runs in claude.ai page context. Handles all API calls, enrichment, and export triggers.
+// v1.2.0: accountSlug threading; project home page fetch; ensureContentScript guard
 
 if (window.piqPullContentScriptLoaded) {
   console.log('PiQPull: content script already loaded, skipping re-injection');
@@ -45,8 +45,6 @@ if (window.piqPullContentScriptLoaded) {
     return apiResponse.json();
   }
 
-  // Fetch Claude.ai project details for a given project UUID.
-  // Returns { name, uuid, description } or null if unavailable.
   async function fetchClaudeProjectInfo(orgId, projectUuid) {
     if (!orgId || !projectUuid) return null;
     try {
@@ -57,12 +55,31 @@ if (window.piqPullContentScriptLoaded) {
       if (!projectResponse.ok) return null;
       const projectData = await projectResponse.json();
       return {
-        name:        projectData.name        || null,
-        uuid:        projectData.uuid        || projectUuid,
-        description: projectData.description || null,
+        name:         projectData.name         || null,
+        uuid:         projectData.uuid         || projectUuid,
+        description:  projectData.description  || null,
+        instructions: projectData.prompt        || projectData.instructions || null,
+        memory:       projectData.memory        || null,
       };
-    } catch (_projectErr) {
+    } catch (_err) {
       return null;
+    }
+  }
+
+  // Fetch project knowledge files (docs)
+  async function fetchProjectDocs(orgId, projectUuid) {
+    if (!orgId || !projectUuid) return [];
+    try {
+      const response = await fetch(
+        `https://claude.ai/api/organizations/${orgId}/projects/${projectUuid}/docs`,
+        { credentials: 'include', headers: { Accept: 'application/json' } }
+      );
+      if (!response.ok) return [];
+      const data = await response.json();
+      // Response may be array or { docs: [] }
+      return Array.isArray(data) ? data : (data.docs || []);
+    } catch (_err) {
+      return [];
     }
   }
 
@@ -78,20 +95,21 @@ if (window.piqPullContentScriptLoaded) {
     });
   }
 
-  function pushLegacyJsonlViaBackground(filename, jsonlContent) {
-    return relayToBackground({ action: 'pushToServer', filename, content: jsonlContent });
-  }
-
   function pushIncomingViaBackground(incomingPayload) {
     return relayToBackground({ action: 'pushToIncoming', ...incomingPayload });
   }
 
+  function pushProjectHomeViaBackground(payload) {
+    return relayToBackground({ action: 'pushProjectHome', ...payload });
+  }
+
   // ---------------------------------------------------------------------------
-  // Structured incoming export — primary path when PiQuix project is selected
+  // Structured incoming export — conversation → /export/incoming
   // ---------------------------------------------------------------------------
 
   async function handleIncomingExport(request, sendResponse) {
-    const { orgId, orgName, conversationId, projectFolder, projectName, tabUrl } = request;
+    const { orgId, orgName, conversationId, projectFolder, projectName,
+            tabUrl, accountSlug } = request;
 
     // Fetch conversation
     let conversationData;
@@ -109,7 +127,7 @@ if (window.piqPullContentScriptLoaded) {
 
     conversationData.model = inferModel(conversationData);
 
-    // Enrich with Claude.ai project name (non-blocking — fails gracefully)
+    // Enrich with Claude.ai project name
     let claudeaiProjectName = null;
     let claudeaiProjectUuid = conversationData.project_uuid || null;
     if (claudeaiProjectUuid && orgId) {
@@ -121,7 +139,7 @@ if (window.piqPullContentScriptLoaded) {
     const chatSlug        = generateChatSlug(conversationData.name);
     const conversationUrl = tabUrl || `https://claude.ai/chat/${conversationId}`;
 
-    // Collect image assets (non-fatal)
+    // Collect image assets
     let imageAssets = [];
     try {
       imageAssets = await collectImageAssets(conversationData, exportTimestamp);
@@ -129,32 +147,20 @@ if (window.piqPullContentScriptLoaded) {
       console.warn('PiQPull: Image asset collection failed:', _assetErr);
     }
 
-    // Collect artifacts for disk write
-    const artifactFiles = collectArtifactsForTransport(conversationData);
-
-    // Build artifacts manifest (filenames only — content goes in separate transport array)
+    // Collect artifacts
+    const artifactFiles     = collectArtifactsForTransport(conversationData);
     const artifactsManifest = artifactFiles.map(af => ({
-      filename: af.filename,
+      filename:   af.filename,
       size_chars: af.content ? af.content.length : 0,
     }));
 
-    // Build v2 payload
     const exportPayload = buildExportPayload(
-      conversationData,
-      conversationId,
-      conversationUrl,
-      projectFolder,
-      projectName,
-      imageAssets,
-      exportTimestamp,
-      orgId,
-      orgName || null,
-      claudeaiProjectName,
-      claudeaiProjectUuid,
-      artifactsManifest
+      conversationData, conversationId, conversationUrl,
+      projectFolder, projectName, imageAssets, exportTimestamp,
+      orgId, orgName || null, claudeaiProjectName, claudeaiProjectUuid,
+      artifactsManifest, accountSlug || null
     );
 
-    // Transport: strip data_base64 out of image manifest (server gets it in separate array)
     const imageAssetsForTransport = imageAssets.map(asset => ({
       asset_filename: asset.asset_filename,
       data_base64:    asset.data_base64,
@@ -163,6 +169,7 @@ if (window.piqPullContentScriptLoaded) {
 
     const serverResult = await pushIncomingViaBackground({
       projectFolder,
+      accountSlug:   accountSlug || 'unknown',
       chatSlug,
       conversationId,
       exportPayload,
@@ -177,6 +184,91 @@ if (window.piqPullContentScriptLoaded) {
 
     recordExportTimestamp(conversationId);
     sendResponse({ success: true, data: serverResult.data });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Project home page export — project metadata + knowledge files
+  // ---------------------------------------------------------------------------
+
+  async function handleProjectHomeExport(request, sendResponse) {
+    const { orgId, orgName, conversationId, projectFolder, accountSlug, tabUrl } = request;
+
+    // Determine project UUID from current conversation
+    let projectUuid = null;
+    try {
+      const convData = await fetchConversationFromApi(orgId, conversationId);
+      projectUuid    = convData.project_uuid || null;
+    } catch (_err) {
+      // Try to get from tab URL or current page context
+    }
+
+    if (!projectUuid) {
+      sendResponse({ success: false, error: 'No Claude.ai project found for this conversation. Open a conversation inside a Claude.ai project first.' });
+      return;
+    }
+
+    const exportTimestamp = getPiQTimestamp();
+
+    // Fetch project details
+    let projectInfo = null;
+    try {
+      projectInfo = await fetchClaudeProjectInfo(orgId, projectUuid);
+    } catch (_err) { /* non-fatal */ }
+
+    // Fetch knowledge files list
+    let docs = [];
+    try {
+      docs = await fetchProjectDocs(orgId, projectUuid);
+    } catch (_err) { /* non-fatal */ }
+
+    // Build knowledge files manifest with content
+    const knowledgeFiles = docs.map((doc, idx) => ({
+      index:       idx + 1,
+      uuid:        doc.uuid || doc.id || null,
+      filename:    doc.file_name || doc.filename || doc.name || `doc_${idx + 1}`,
+      created_at:  doc.created_at || null,
+      updated_at:  doc.updated_at || null,
+      file_size:   doc.file_size  || null,
+      content:     doc.content    || doc.extracted_content || null,
+    }));
+
+    const projectName   = projectInfo?.name        || null;
+    const projectSlug   = (projectName || 'unknown-project')
+                            .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+    const payload = {
+      piqpull_project_meta: {
+        export_type:       'project_home',
+        export_version:    1,
+        exported_at:       exportTimestamp,
+        provider:          'claude.ai',
+        account_slug:      accountSlug || 'unknown',
+        org_id:            orgId       || null,
+        org_name:          orgName     || null,
+        piQuix_folder:     projectFolder || null,
+        project_uuid:      projectUuid,
+        project_name:      projectName,
+        project_slug:      projectSlug,
+        project_description: projectInfo?.description  || null,
+        project_instructions: projectInfo?.instructions || null,
+        project_memory:    projectInfo?.memory         || null,
+        knowledge_files_count: knowledgeFiles.length,
+        knowledge_files:   knowledgeFiles,
+      }
+    };
+
+    const serverResult = await pushProjectHomeViaBackground({
+      accountSlug:   accountSlug   || 'unknown',
+      projectFolder: projectFolder || 'unknown',
+      payload,
+    });
+
+    if (!serverResult.success) {
+      sendResponse({ success: false, error: `Server error: ${serverResult.error}` });
+      return;
+    }
+
+    sendResponse({ success: true, data: serverResult.data, projectName });
   }
 
   // ---------------------------------------------------------------------------
@@ -229,13 +321,13 @@ if (window.piqPullContentScriptLoaded) {
         for (const f of artifactFiles) af.file(`${conversationData.name || conversationId}_${f.filename}`, f.content);
       }
       const zipBlob = await zipArchive.generateAsync({ type: 'blob' });
-      const url     = URL.createObjectURL(zipBlob);
-      const anchor  = document.createElement('a');
+      const url = URL.createObjectURL(zipBlob);
+      const anchor = document.createElement('a');
       anchor.href = url; anchor.download = `${conversationData.name || conversationId}.zip`;
       document.body.appendChild(anchor); anchor.click(); document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
     } else {
-      if (includeChats === false) { sendResponse({ success: false, error: 'Nothing to export. Enable Chats or Artifacts.' }); return; }
+      if (includeChats === false) { sendResponse({ success: false, error: 'Nothing to export.' }); return; }
       const { content, filename, mimeType } = buildDownloadContent(conversationData, request);
       downloadFile(content, filename, mimeType);
     }
@@ -243,8 +335,7 @@ if (window.piqPullContentScriptLoaded) {
     if (serverPush) {
       const ts       = getPiQTimestamp();
       const safeName = (conversationData.name || conversationId).replace(/[<>:"/\\|?*]/g, '_');
-      pushLegacyJsonlViaBackground(`piqpull-claude-${safeName}-${ts}.jsonl`, convertToJSONL(conversationData, conversationId))
-        .then(r => { if (!r.success) console.warn('PiQPull: legacy push failed:', r.error); });
+      relayToBackground({ action: 'pushToServer', filename: `piqpull-claude-${safeName}-${ts}.jsonl`, content: convertToJSONL(conversationData, conversationId) });
     }
 
     recordExportTimestamp(conversationId);
@@ -312,24 +403,21 @@ if (window.piqPullContentScriptLoaded) {
     const ts     = getPiQTimestamp();
     const prefix = doFlat && !doNested && includeChats === false ? 'piqpull-claude-artifacts' : 'piqpull-claude-exports';
     const zipBlob = await zipArchive.generateAsync({ type: 'blob' });
-    const url     = URL.createObjectURL(zipBlob);
-    const anchor  = document.createElement('a');
+    const url = URL.createObjectURL(zipBlob);
+    const anchor = document.createElement('a');
     anchor.href = url; anchor.download = `${prefix}-${ts}.zip`;
     document.body.appendChild(anchor); anchor.click(); document.body.removeChild(anchor);
     URL.revokeObjectURL(url);
 
     if (serverPush && allJsonlLines.length > 0) {
-      pushLegacyJsonlViaBackground(`piqpull-claude-bulk-${ts}.jsonl`, allJsonlLines.join('\n'))
-        .then(r => { if (!r.success) console.warn('PiQPull: bulk server push failed:', r.error); });
+      relayToBackground({ action: 'pushToServer', filename: `piqpull-claude-bulk-${ts}.jsonl`, content: allJsonlLines.join('\n') });
     }
 
     recordExportTimestamps(conversations.map(c => c.uuid).filter(id => !failedNames.some(n => n.includes(id))));
 
-    if (failedNames.length > 0) {
-      sendResponse({ success: true, count: successCount, warnings: `Exported ${successCount}. Failures: ${failedNames.join('; ')}` });
-    } else {
-      sendResponse({ success: true, count: successCount });
-    }
+    sendResponse(failedNames.length > 0
+      ? { success: true, count: successCount, warnings: `Exported ${successCount}. Failures: ${failedNames.join('; ')}` }
+      : { success: true, count: successCount });
   }
 
   // ---------------------------------------------------------------------------
@@ -338,7 +426,6 @@ if (window.piqPullContentScriptLoaded) {
 
   chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 
-    // Detect org ID AND org name from /api/organizations
     if (request.action === 'detectOrgId') {
       fetch('https://claude.ai/api/organizations', { credentials: 'include', headers: { Accept: 'application/json' } })
         .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
@@ -346,7 +433,6 @@ if (window.piqPullContentScriptLoaded) {
           if (!Array.isArray(orgList) || orgList.length === 0) throw new Error('No organizations found');
           const chatOrg = orgList.find(org => org.capabilities && org.capabilities.includes('chat'));
           const org     = chatOrg || orgList[0];
-          // Persist org name alongside org ID for use in export payloads
           chrome.storage.sync.set({ organizationId: org.uuid, orgName: org.name || null });
           sendResponse({ success: true, orgId: org.uuid, orgName: org.name || null });
         })
@@ -354,7 +440,6 @@ if (window.piqPullContentScriptLoaded) {
       return true;
     }
 
-    // Structured export → /export/incoming
     if (request.action === 'exportToIncoming') {
       handleIncomingExport(request, sendResponse).catch(err => {
         sendResponse({ success: false, error: err.message, details: err.stack });
@@ -362,7 +447,13 @@ if (window.piqPullContentScriptLoaded) {
       return true;
     }
 
-    // Legacy browser-download export
+    if (request.action === 'exportProjectHome') {
+      handleProjectHomeExport(request, sendResponse).catch(err => {
+        sendResponse({ success: false, error: err.message, details: err.stack });
+      });
+      return true;
+    }
+
     if (request.action === 'exportConversation') {
       fetchConversationFromApi(request.orgId, request.conversationId)
         .then(conversationData => {
@@ -376,14 +467,12 @@ if (window.piqPullContentScriptLoaded) {
       return true;
     }
 
-    // Bulk ZIP export
     if (request.action === 'exportAllConversations') {
       handleBulkExport(request, sendResponse)
         .catch(err => sendResponse({ success: false, error: err.message, details: err.stack }));
       return true;
     }
 
-    // Browse page: load conversations
     if (request.action === 'loadConversations') {
       fetchAllConversationsFromApi(request.orgId)
         .then(conversations => sendResponse({ success: true, conversations }))
@@ -391,7 +480,6 @@ if (window.piqPullContentScriptLoaded) {
       return true;
     }
 
-    // Browse page: load Claude.ai projects
     if (request.action === 'loadProjects') {
       fetch(`https://claude.ai/api/organizations/${request.orgId}/projects`, {
         credentials: 'include', headers: { Accept: 'application/json' }

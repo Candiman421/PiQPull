@@ -10,7 +10,6 @@
   <div class="header">
     <div class="header-top">
       <div class="header-left">
-
         <div class="settings-wrapper">
           <button class="settings-btn" id="settingsBtn" aria-label="Settings">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
@@ -50,13 +49,16 @@
               <span class="settings-value" id="timeFormatLabel">12h</span>
             </div>
             <div class="settings-divider"></div>
+            <div class="settings-item">
+              <span class="settings-label">Account</span>
+              <span class="settings-value" id="accountSlugDisplay">—</span>
+            </div>
             <div class="settings-item" id="testConnection">
               <span class="settings-label">Test connection</span>
               <span class="settings-value" id="connectionStatus"></span>
             </div>
           </div>
         </div>
-
         <h1>PiQPull</h1>
       </div>
 
@@ -87,8 +89,6 @@
 
       <div class="export-controls-wrapper">
         <div class="export-settings">
-
-          <!-- PiQuix project routing row -->
           <div class="export-row export-project-row">
             <label class="project-route-label" for="piQuixProjectSelect">
               Route to PiQuix:
@@ -101,8 +101,7 @@
 
           <div class="export-row">
             <div class="export-section">
-              <label>
-                Format:
+              <label>Format:
                 <select id="exportFormat">
                   <option value="json">JSON</option>
                   <option value="markdown">Markdown</option>
@@ -110,16 +109,21 @@
                   <option value="jsonl">JSONL</option>
                 </select>
               </label>
-              <label title="Include conversation messages"><input type="checkbox" id="includeChats" checked> Chats</label>
-              <label title="Include extended thinking blocks"><input type="checkbox" id="includeThinking"> Thinking</label>
-              <label title="Add metadata header"><input type="checkbox" id="includeMetadata"> Metadata</label>
+              <label title="Include conversation messages">
+                <input type="checkbox" id="includeChats" checked> Chats
+              </label>
+              <label title="Include extended thinking blocks">
+                <input type="checkbox" id="includeThinking" checked> Thinking
+              </label>
+              <label title="Add metadata header">
+                <input type="checkbox" id="includeMetadata" checked> Metadata
+              </label>
             </div>
 
             <div class="section-divider"></div>
 
             <div class="export-section">
-              <label>
-                Artifacts:
+              <label>Artifacts:
                 <select id="artifactFormat">
                   <option value="original">Original</option>
                   <option value="markdown">Markdown</option>
@@ -127,10 +131,18 @@
                   <option value="json">JSON</option>
                 </select>
               </label>
-              <label title="Artifacts inline in text"><input type="checkbox" id="includeArtifacts"> Inline</label>
-              <label title="Artifacts as separate files in subfolders"><input type="checkbox" id="extractArtifacts"> Nested</label>
-              <label title="Artifacts flat, name prefix"><input type="checkbox" id="flattenArtifacts"> Flat</label>
-              <label title="POST JSONL to localhost:7432/export/write"><input type="checkbox" id="serverPush"> PiQuix</label>
+              <label title="Artifacts inline in text">
+                <input type="checkbox" id="includeArtifacts"> Inline
+              </label>
+              <label title="Artifacts as separate files in subfolders">
+                <input type="checkbox" id="extractArtifacts"> Nested
+              </label>
+              <label title="Artifacts flat, name prefixed">
+                <input type="checkbox" id="flattenArtifacts"> Flat
+              </label>
+              <label title="POST JSONL to localhost:7432/export/write">
+                <input type="checkbox" id="serverPush"> PiQuix
+              </label>
             </div>
           </div>
         </div>
@@ -154,44 +166,39 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <!-- ================================================================
-       PIQ ORB — Animated export progress sphere with B&B commentary
+       PIQ ORB — Export progress sphere with B&B shotgun spray words
        ================================================================ -->
   <div id="piqOrbModal" class="piq-orb-modal hidden" role="dialog" aria-modal="true" aria-label="Export progress">
+
+    <!-- Full-modal spray layer — words fly here, z-index above sphere -->
+    <div id="piqSprayLayer" class="piq-spray-layer" aria-hidden="true"></div>
+
     <div class="piq-orb-sphere">
 
-      <!-- Animated SVG sphere — sky-blue/purple with tentacle wisps -->
       <svg class="piq-orb-svg" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
-          <!-- Main sphere gradient: purple-blue center → deep navy edge -->
           <radialGradient id="piqSphereGrad" cx="38%" cy="32%" r="70%">
             <stop offset="0%"   stop-color="#7040e0"/>
             <stop offset="28%"  stop-color="#3820a8"/>
             <stop offset="60%"  stop-color="#111870"/>
             <stop offset="100%" stop-color="#050b30"/>
           </radialGradient>
-          <!-- Outer electric ring -->
           <radialGradient id="piqRingGrad" cx="50%" cy="50%" r="50%">
             <stop offset="72%"  stop-color="#0820b0" stop-opacity="0"/>
             <stop offset="100%" stop-color="#4070ff" stop-opacity="0.55"/>
           </radialGradient>
-          <!-- Wisp blur -->
           <filter id="piqWispFx" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="3"/>
           </filter>
-          <!-- Clip to sphere -->
           <clipPath id="piqSphereClip">
             <circle cx="250" cy="250" r="242"/>
           </clipPath>
         </defs>
 
-        <!-- Outer electric glow ring -->
         <circle cx="250" cy="250" r="248" fill="url(#piqRingGrad)"/>
-
-        <!-- Main sphere -->
         <circle cx="250" cy="250" r="242" fill="url(#piqSphereGrad)"
                 stroke="#5060d8" stroke-width="1.5" stroke-opacity="0.55"/>
 
-        <!-- Tentacle wisps — clipped inside sphere, blurred -->
         <g clip-path="url(#piqSphereClip)" filter="url(#piqWispFx)">
           <ellipse cx="250" cy="250" rx="195" ry="56" fill="none" stroke="#30a8ff" stroke-width="2" stroke-opacity="0.55">
             <animateTransform attributeName="transform" type="rotate" from="0 250 250" to="360 250 250" dur="9s" repeatCount="indefinite"/>
@@ -211,7 +218,6 @@
           <ellipse cx="250" cy="250" rx="136" ry="40" fill="none" stroke="#6820e0" stroke-width="1" stroke-opacity="0.48">
             <animateTransform attributeName="transform" type="rotate" from="155 250 250" to="515 250 250" dur="7.5s" repeatCount="indefinite"/>
           </ellipse>
-          <!-- Dashed wispy paths -->
           <path d="M 90 250 Q 170 165 250 205 Q 330 245 410 205" fill="none"
                 stroke="#50c8ff" stroke-width="1.2" stroke-opacity="0.32" stroke-dasharray="26 13">
             <animateTransform attributeName="transform" type="rotate" from="0 250 250" to="360 250 250" dur="19s" repeatCount="indefinite"/>
@@ -220,38 +226,24 @@
                 stroke="#6030ff" stroke-width="1" stroke-opacity="0.28" stroke-dasharray="19 11">
             <animateTransform attributeName="transform" type="rotate" from="52 250 250" to="412 250 250" dur="25s" repeatCount="indefinite"/>
           </path>
-          <!-- Shorter sparky wisps -->
           <ellipse cx="250" cy="250" rx="88" ry="26" fill="none" stroke="#60e0ff" stroke-width="1" stroke-opacity="0.5">
             <animateTransform attributeName="transform" type="rotate" from="20 250 250" to="380 250 250" dur="5s" repeatCount="indefinite"/>
           </ellipse>
         </g>
 
-        <!-- Specular highlight -->
         <ellipse cx="180" cy="168" rx="60" ry="40" fill="white" opacity="0.055"
                  transform="rotate(-22 180 168)"/>
 
-        <!-- ── BUTT-HEAD PNG — mix-blend-mode:screen removes black background ── -->
-        <image class="piq-bb-face" href="butthead.png"
+        <!-- Butt-Head — top-left; mix-blend-mode:screen removes black bg -->
+        <image class="piq-bb-face" id="orbFaceLeft" href="faces/face-butthead.png"
                x="52" y="58" width="145" height="185"
                clip-path="url(#piqSphereClip)"/>
 
-        <!-- ── BEAVIS PNG — mix-blend-mode:screen removes black background ── -->
-        <image class="piq-bb-face" href="beavis.png"
+        <!-- Beavis — bottom-right -->
+        <image class="piq-bb-face" id="orbFaceRight" href="faces/face-beavis.png"
                x="330" y="295" width="115" height="165"
                clip-path="url(#piqSphereClip)"/>
       </svg>
-
-      <!-- Butt-Head speech bubble — top-left -->
-      <div class="piq-speech piq-speech-bh" id="piqSpeechBH">
-        <div class="piq-speech-who">Butt&#8209;Head</div>
-        <div class="piq-speech-text" id="piqBHText">Uh… loading stuff.</div>
-      </div>
-
-      <!-- Beavis speech bubble — bottom-right -->
-      <div class="piq-speech piq-speech-bv" id="piqSpeechBV">
-        <div class="piq-speech-who">Beavis</div>
-        <div class="piq-speech-text" id="piqBVText">Heh heh.</div>
-      </div>
 
       <!-- Center stats overlay -->
       <div class="piq-orb-center">
@@ -265,20 +257,8 @@
         <div class="piq-orb-log"  id="piqOrbLog"></div>
       </div>
 
-      <!-- Cancel -->
+      <button class="piq-orb-config-btn" id="piqOrbConfigBtn" title="Change characters" aria-label="Configure orb characters">⚙</button>
       <button class="piq-orb-cancel" id="piqOrbCancel">Cancel</button>
-
-    </div>
-  </div>
-
-  <!-- Legacy modal — unused but kept for reference -->
-  <div class="modal-overlay" id="progressModal" role="dialog" aria-modal="true" aria-label="Export progress" style="display:none">
-    <div class="modal-box">
-      <h3>Exporting</h3>
-      <div id="progressText">…</div>
-      <div class="progress-bar-track"><div class="progress-bar-fill" id="progressBar"></div></div>
-      <div class="progress-stats" id="progressStats"></div>
-      <button class="btn-cancel" id="cancelExport">Cancel</button>
     </div>
   </div>
 
@@ -288,6 +268,7 @@
   <script src="browse-format.js"></script>
   <script src="browse-api.js"></script>
   <script src="browse-table.js"></script>
+  <script src="orb-characters.js"></script>
   <script src="browse-export.js"></script>
   <script src="browse.js"></script>
 </body>

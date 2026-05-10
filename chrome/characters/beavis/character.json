@@ -1,0 +1,57 @@
+{
+  "_comment": "Convention: folder name = character id = image filename (beavis.png). character.json is always the fixed name.",
+  "id":     "beavis",
+  "name":   "Beavis",
+  "label":  "Beavis",
+  "credit": "Mike Judge / Comedy Central (1993–2024)",
+  "colors": ["#ffe060", "#ffcc00", "#ffd700", "#ffaa00"],
+
+  "phrases": {
+    "_comment": "Arrays = pick one at random. Tokens: {n} {t} {name} {proj} {msgs} {model} {err} {left} {ok}. done splits into done_all / done_partial.",
+
+    "init":         ["Heh heh heh. Export.", "Heh heh! We're gonna do stuff!", "Yeah yeah yeah! This is gonna be cool!", "Heh heh, like, a LOT of chats. Heh heh.", "FIRE! FIRE! Wait — export. Heh heh."],
+    "fetching":     ["Heh heh. Fetch.", "Yeah yeah, get it! HEH!", "Downloading is cool heh heh.", "Get it! GET IT! YEAH! Heh heh!", "Heh heh. The internet. Heh."],
+    "hasThink":     ["Heh, {n} thinking blocks. I think sometimes too. Heh.", "It's thinking SO HARD! Like, more than me! Which is zero! Heh heh heh!"],
+    "hasArts":      ["Heh heh. Artifacts!", "Yeah! Like treasure! Heh!", "Cool! Artifacts are cool! Heh heh heh!", "Heh, artifacts. That's a cool word. Heh."],
+    "pushing":      ["Yeah yeah, push it!", "Heh heh pushing.", "Push! Push! Heh!", "PUSH IT PUSH IT REAL GOOD! Heh heh!"],
+    "pushOk":       ["Heh heh. Done!", "YEAH! Next! Heh!", "It worked! That's cool! Heh heh!", "Damn, we're smooth. Heh heh.", "Heh heh heh. Done. That was cool."],
+    "fetchFail":    ["WHAT?! It broke! Heh heh.", "Heh, that one died. That sucks.", "BROKEN! This sucks MORE THAN ANYTHING! Heh.", "Ugh, it broke. Heh heh. Broke is funny."],
+    "pushFail":     ["Server said NO! Heh heh.", "Heh heh server is being a buttmunch.", "Server SUCKS! That's not cool! Heh!"],
+    "retrying":     ["Try again! Heh heh!", "Yeah once more! Heh!", "DO IT AGAIN! DO IT AGAIN! HEH HEH!", "Retry! That's like, what you do! Heh!"],
+    "halfway":      ["Heh heh half done.", "We're like, in the middle. Heh.", "Half is like, better than zero! Heh heh.", "Heh heh heh. Halfway. That's a word."],
+    "nearEnd":      ["YEAH almost! Heh heh heh!", "So close I can almost feel it! Heh!", "Almost! THIS IS THE GREATEST DAY! HEH!"],
+    "done_all":     ["YEAH! WE DID IT! HEH HEH HEH HEH HEH HEH!"],
+    "done_partial": ["Heh missed some. That sucks.", "Some broke. Heh heh.", "Close enough. Heh heh."],
+    "cancelled":    ["Heh heh. You quit. Heh.", "Loser! Heh heh. Nah jk. Heh.", "You quit? That sucks more than school. Heh."],
+    "zipping":      ["Heh heh. Zipping.", "ZIP FILE! Heh heh heh!", "Making the zip. Heh. Zip is a cool word."],
+    "zipDone":      ["YEAH! It's a ZIP! HEH HEH HEH!", "ZIP FILE! IT'S DONE! YEAH!"],
+    "log":          ["Heh heh. Log.", "Writing stuff. Heh. Stuff.", "Heh heh recording. Like a record. Heh."]
+  },
+
+  "_sources": [
+    {
+      "text": "I am the great Cornholio. I need TP for my bunghole.",
+      "type": "film",
+      "work": "Beavis and Butt-Head Do America",
+      "year": 1996,
+      "artist": "Mike Judge",
+      "verified": true
+    },
+    {
+      "text": "This sucks more than anything that has ever sucked before.",
+      "type": "series",
+      "work": "Beavis and Butt-Head",
+      "year": 1993,
+      "artist": "Mike Judge",
+      "verified": true
+    },
+    {
+      "text": "Damn, we're smooth.",
+      "type": "series",
+      "work": "Beavis and Butt-Head",
+      "year": 1993,
+      "artist": "Mike Judge",
+      "verified": true
+    }
+  ]
+}

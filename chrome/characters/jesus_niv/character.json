@@ -1,0 +1,30 @@
+{
+  "id":     "jesus_niv",
+  "name":   "Jesus (NIV)",
+  "label":  "Jesus · New International Version",
+  "credit": "Thematic paraphrases in NIV register (Zondervan, 1978/2011)",
+  "colors": ["#ffffff", "#e8f4ff", "#c8e8ff", "#b0e0ff"],
+  "phrases": {
+    "init":         ["Come to me, all {n} conversations. I will give them rest.", "I am the way, the truth, and the pipeline{proj}.", "Do not be anxious about anything. Present your request — all {n} conversations.", "For I know the plans I have for these conversations — plans to export, not to lose."],
+    "fetching":     ["Ask and it will be given to you. Fetching \"{name}\" right now.", "Seek and you will find \"{name}\". The API does not stay closed.", "\"{name}\" — I know where you are. I am coming to get you."],
+    "hasThink":     ["{n} thinking blocks. Whatever is true, noble, right, excellent — think about such things."],
+    "hasArts":      ["{n} artifact(s) extracted. Store your treasures where servers don't corrupt."],
+    "pushing":      ["Go into all the world and push \"{name}\" to every project folder.", "You are the light of the world. Let \"{name}\" shine in the project folder."],
+    "pushOk":       ["Well done, good and faithful server. Conversation saved.", "The truth will set your data free. It's saved. It's done.", "Saved. Peace I leave with you. My peace I give you."],
+    "fetchFail":    ["\"{name}\" failed. Don't let your hearts be troubled. And don't be afraid. We keep going."],
+    "pushFail":     ["Server didn't accept \"{name}\". Forgive it — seventy times seven. Moving forward."],
+    "retrying":     ["Keep asking, keep seeking, keep knocking. Retry {n} for \"{name}\"."],
+    "halfway":      ["You are {pct}% of the way. I will never leave you or forsake you. Not even here."],
+    "nearEnd":      ["Only {left} remain. Press on toward the goal."],
+    "done_all":     ["All {t} gathered and not one was lost. Well done. That is a miracle of engineering."],
+    "done_partial": ["{ok} of {t} complete. Even so, love never fails — even when {missed} did."],
+    "cancelled":    ["You stopped. That's okay. Peace I leave with you. Come back when you're ready."],
+    "zipping":      ["I am making everything new — including this zip file."],
+    "zipDone":      ["It is done. I am the Alpha and the Omega of this entire export operation."],
+    "log":          ["The record is being written. Every deed will come to light. That's the session log."]
+  },
+  "_sources": [
+    {"text": "Come to me, all you who are weary and burdened, and I will give you rest.", "type": "scripture", "work": "Matthew 11:28", "verse": "Matthew 11:28", "year": 1978, "verified": true},
+    {"text": "I am the way and the truth and the life.", "type": "scripture", "work": "John 14:6", "verse": "John 14:6", "year": 1978, "verified": true}
+  ]
+}

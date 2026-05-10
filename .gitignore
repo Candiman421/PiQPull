@@ -1,18 +1,43 @@
 # PiQPull .gitignore
-# _local/ is untracked scratch space — dev notes, test exports, generated indexes
+
+# ── Face images — NOT redistributable ───────────────────────────────────────
+# Copyright notice: face images for orb characters are not included in this
+# repo. Each user supplies their own. See README.md — Face Images section.
+chrome/characters/*/face.png
+chrome/characters/**/*.png
+chrome/characters/**/*.jpg
+chrome/characters/**/*.jpeg
+chrome/characters/**/*.webp
+chrome/characters/**/*.gif
+
+# Original character PNGs (kept for backward compat with pre-1.2.0 layout)
+chrome/beavis.png
+chrome/butthead.png
+
+# ── Local / dev scratch ───────────────────────────────────────────────────────
 _local/
+TempOutput/
+*.local.*
 
-# Bulk export ZIPs (unorganized dumps, not committed)
-*.zip
-
-# Node / package manager
+# ── Node / build artifacts ────────────────────────────────────────────────────
 node_modules/
+dist/
+build/
+.cache/
 
-# OS artifacts
+# ── OS / editor ───────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-desktop.ini
+*.swp
+*.swo
+.vscode/settings.json
+.idea/
 
-# Editor artifacts
-*.suo
-.vscode/
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+*.env.local
+secrets.*
+
+# ── Test exports (bulk downloads for debugging) ───────────────────────────────
+*.zip
+chrome/_local/

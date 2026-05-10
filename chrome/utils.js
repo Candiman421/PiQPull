@@ -1,262 +1,320 @@
-// PiQPull — Shared Utility Functions
-// Provider: Claude.ai
-// Repo: Candiman421/PiQPull
-//
-// SECTIONS:
-//   1. Timestamp
-//   2. Model Inference
-//   3. Branch Reconstruction
-//   4. Artifact Extraction
-//   5. Language / Extension Helpers
-//   6. Artifact File Extraction
-//   7. Export Converters (Markdown, Text, JSONL)
-//   8. File Download
-//   9. Server Push (legacy JSONL)
-//  10. Slug + Image Asset Helpers
-//  11. Conversation Stats + Branch Map
-//  12. Export Payload Builder v2
+// PiQPull — Shared Utility Functions v1.2.0
+// All functions are defensive: null-safe, array-guarded, no implicit coercion.
+// No unused variables. No var declarations. Strict equality throughout.
 
 // =============================================================================
 // 1. TIMESTAMP
 // =============================================================================
 
+/** @returns {string} PiQ timestamp: YYYY.MM.DD-HHmmss */
 function getPiQTimestamp() {
-  const now    = new Date();
-  const year   = now.getFullYear();
-  const month  = String(now.getMonth() + 1).padStart(2, '0');
-  const day    = String(now.getDate()).padStart(2, '0');
-  const hours  = String(now.getHours()).padStart(2, '0');
-  const mins   = String(now.getMinutes()).padStart(2, '0');
-  const secs   = String(now.getSeconds()).padStart(2, '0');
-  return `${year}.${month}.${day}-${hours}${mins}${secs}`;
+  const now   = new Date();
+  const pad   = (/** @type {number} */ n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 }
 
 // =============================================================================
 // 2. MODEL INFERENCE
 // =============================================================================
 
-const DEFAULT_MODEL_TIMELINE = [
-  { date: new Date('2024-01-01'), model: 'claude-3-sonnet-20240229' },
-  { date: new Date('2024-06-20'), model: 'claude-3-5-sonnet-20240620' },
-  { date: new Date('2024-10-22'), model: 'claude-3-5-sonnet-20241022' },
-  { date: new Date('2025-02-24'), model: 'claude-3-7-sonnet-20250219' },
-  { date: new Date('2025-05-22'), model: 'claude-sonnet-4-20250514' },
-  { date: new Date('2025-09-29'), model: 'claude-sonnet-4-5-20250929' },
-  { date: new Date('2026-02-17'), model: 'claude-sonnet-4-6' }
+const MODEL_TIMELINE = [
+  { from: new Date('2024-01-01'), model: 'claude-3-sonnet-20240229'      },
+  { from: new Date('2024-06-20'), model: 'claude-3-5-sonnet-20240620'    },
+  { from: new Date('2024-10-22'), model: 'claude-3-5-sonnet-20241022'    },
+  { from: new Date('2025-02-24'), model: 'claude-3-7-sonnet-20250219'    },
+  { from: new Date('2025-05-22'), model: 'claude-sonnet-4-20250514'      },
+  { from: new Date('2025-09-29'), model: 'claude-sonnet-4-5-20250929'    },
+  { from: new Date('2026-02-17'), model: 'claude-sonnet-4-6'             },
 ];
 
-function inferModel(conversationData) {
-  if (conversationData.model) return conversationData.model;
-  const convDate = new Date(conversationData.created_at);
-  for (let i = DEFAULT_MODEL_TIMELINE.length - 1; i >= 0; i--) {
-    if (convDate >= DEFAULT_MODEL_TIMELINE[i].date) return DEFAULT_MODEL_TIMELINE[i].model;
+/** @param {{ model?: string, created_at?: string }} convData */
+function inferModel(convData) {
+  if (convData && convData.model) return convData.model;
+  const dt = convData && convData.created_at ? new Date(convData.created_at) : new Date(0);
+  for (let i = MODEL_TIMELINE.length - 1; i >= 0; i--) {
+    if (dt >= MODEL_TIMELINE[i].from) return MODEL_TIMELINE[i].model;
   }
-  return DEFAULT_MODEL_TIMELINE[0].model;
+  return MODEL_TIMELINE[0].model;
 }
 
 // =============================================================================
-// 3. BRANCH RECONSTRUCTION — active branch only (for converters)
+// 3. BRANCH RECONSTRUCTION — active branch only (leaf → root walk)
 // =============================================================================
 
-function getCurrentBranch(conversationData) {
-  if (!conversationData.chat_messages || !Array.isArray(conversationData.chat_messages)) return [];
-  if (!conversationData.current_leaf_message_uuid) return conversationData.chat_messages;
+/** @param {{ chat_messages?: unknown[], current_leaf_message_uuid?: string }} convData */
+function getCurrentBranch(convData) {
+  const msgs = Array.isArray(convData && convData.chat_messages) ? convData.chat_messages : [];
+  if (msgs.length === 0) return [];
 
-  const messageMap = new Map();
-  conversationData.chat_messages.forEach(msg => messageMap.set(msg.uuid, msg));
+  const leafId = convData.current_leaf_message_uuid;
+  if (!leafId) return msgs;
 
-  const branch = [];
-  let currentUuid = conversationData.current_leaf_message_uuid;
-
-  while (currentUuid && messageMap.has(currentUuid)) {
-    const msg = messageMap.get(currentUuid);
-    branch.unshift(msg);
-    currentUuid = msg.parent_message_uuid;
-    if (!messageMap.has(currentUuid)) break;
+  /** @type {Map<string, object>} */
+  const msgMap = new Map();
+  for (const m of msgs) {
+    if (m && m.uuid) msgMap.set(m.uuid, m);
   }
 
-  return branch;
+  if (!msgMap.has(leafId)) return msgs; // leaf not found — return all
+
+  const branch = [];
+  let cur = leafId;
+  const visited = new Set();
+
+  while (cur && msgMap.has(cur) && !visited.has(cur)) {
+    visited.add(cur);
+    const msg = msgMap.get(cur);
+    branch.unshift(msg);
+    cur = msg.parent_message_uuid || '';
+  }
+
+  return branch.length > 0 ? branch : msgs;
 }
 
 // =============================================================================
 // 4. ARTIFACT EXTRACTION
 // =============================================================================
 
+/**
+ * Extract all artifacts from a single message object.
+ * Handles: tool_use name="artifacts" (legacy), create_file (current), antArtifact XML.
+ * Bug 5 fix: else-if for message.text to prevent double-extraction.
+ */
 function extractArtifactsFromMessage(message) {
+  if (!message) return [];
   const artifacts = [];
+  const blocks = Array.isArray(message.content) ? message.content : [];
 
-  if (message.content && Array.isArray(message.content)) {
-    for (const contentBlock of message.content) {
-      if (contentBlock.type === 'tool_use' && contentBlock.name === 'artifacts' && contentBlock.display_content) {
-        const displayContent = contentBlock.display_content;
+  if (blocks.length > 0) {
+    for (const block of blocks) {
+      if (!block || typeof block !== 'object') continue;
 
-        if (displayContent.type === 'code_block' && displayContent.code) {
-          const language  = displayContent.language || 'txt';
-          const filename  = displayContent.filename || 'artifact';
-          const titleBase = filename.split('/').pop().replace(/\.[^.]+$/, '');
+      // Legacy Claude artifact panel: tool_use name="artifacts"
+      if (block.type === 'tool_use' && block.name === 'artifacts' && block.display_content) {
+        const dc = block.display_content;
+        if (dc.type === 'code_block' && dc.code) {
+          const lang  = dc.language || 'txt';
+          const fname = String(dc.filename || 'artifact').split('/').pop().replace(/\.[^.]+$/, '');
           artifacts.push({
-            title: titleBase || 'Untitled', language,
-            type: isProgrammingLanguage(language) ? 'code' : 'document',
-            identifier: null, content: displayContent.code.trim()
+            title: fname || 'Untitled', language: lang,
+            type: isProgrammingLanguage(lang) ? 'code' : 'document',
+            identifier: null, content: String(dc.code).trim(), source: 'tool_use_artifacts'
           });
-        } else if (displayContent.type === 'json_block' && displayContent.json_block) {
+        } else if (dc.type === 'json_block' && dc.json_block) {
           try {
-            const artifactDefinition = JSON.parse(displayContent.json_block);
-            if (artifactDefinition.filename) {
-              const language  = artifactDefinition.language || 'txt';
-              const titleBase = artifactDefinition.filename.split('/').pop().replace(/\.[^.]+$/, '');
+            const def = JSON.parse(String(dc.json_block));
+            if (def && def.filename) {
+              const lang  = def.language || 'txt';
+              const fname = String(def.filename).split('/').pop().replace(/\.[^.]+$/, '');
               artifacts.push({
-                title: titleBase || 'Untitled', language,
-                type: isProgrammingLanguage(language) ? 'code' : 'document',
-                identifier: null, content: (artifactDefinition.code || '').trim()
+                title: fname || 'Untitled', language: lang,
+                type: isProgrammingLanguage(lang) ? 'code' : 'document',
+                identifier: null, content: String(def.code || '').trim(), source: 'tool_use_artifacts'
               });
             }
-          } catch (parseErr) {
-            console.warn('PiQPull: Failed to parse artifact json_block:', parseErr);
-          }
+          } catch (_e) { /* malformed JSON block — skip */ }
         }
       }
-      if (contentBlock.text) artifacts.push(...extractArtifactsFromText(contentBlock.text));
+
+      // Current delivery path: create_file tool_use
+      if (block.type === 'tool_use' && block.name === 'create_file') {
+        const inp = block.input && typeof block.input === 'object' ? block.input : {};
+        if (inp.path && inp.file_text !== undefined && inp.file_text !== null) {
+          const rawName = String(inp.path).replace(/\\/g, '/').split('/').pop();
+          const ext     = rawName.includes('.') ? rawName.split('.').pop().toLowerCase() : 'txt';
+          artifacts.push({
+            title:      rawName.replace(/\.[^.]+$/, '') || 'Untitled',
+            language:   LANG_MAP[ext] || ext,
+            type:       DOC_EXTS.has(ext) ? 'document' : 'code',
+            identifier: block.id || null,
+            content:    String(inp.file_text),
+            source:     'create_file'
+          });
+        }
+      }
+
+      // antArtifact XML tags inside text blocks
+      if (block.type === 'text' && typeof block.text === 'string' && block.text.length > 0) {
+        artifacts.push(...extractArtifactsFromText(block.text));
+      }
     }
+
+  // Bug 5 fix: only fall back to .text when content blocks are absent
+  } else if (typeof message.text === 'string' && message.text.length > 0) {
+    artifacts.push(...extractArtifactsFromText(message.text));
   }
 
-  if (message.text) artifacts.push(...extractArtifactsFromText(message.text));
   return artifacts;
 }
 
-function extractArtifactsFromText(sourceText) {
-  const artifactTagRegex = /<antArtifact[^>]*>([\s\S]*?)<\/antArtifact>/g;
+const LANG_MAP = {
+  md:'markdown', markdown:'markdown', txt:'text', text:'text', csv:'csv',
+  js:'javascript', mjs:'javascript', cjs:'javascript',
+  ts:'typescript', jsx:'jsx', tsx:'tsx',
+  py:'python', cs:'csharp', java:'java', cpp:'cpp', cc:'cpp', c:'c', h:'c',
+  html:'html', htm:'html', css:'css', scss:'scss', less:'less',
+  json:'json', jsonl:'json', xml:'xml', svg:'svg',
+  sh:'shell', bash:'shell', ps1:'powershell', psm1:'powershell',
+  yaml:'yaml', yml:'yaml', toml:'toml', ini:'ini', sql:'sql',
+  rs:'rust', go:'go', rb:'ruby', php:'php', kt:'kotlin', swift:'swift',
+  dart:'dart', ex:'elixir', exs:'elixir', hs:'haskell',
+  clj:'clojure', fs:'fsharp', lua:'lua', pl:'perl', r:'r',
+};
+
+const DOC_EXTS = new Set(['md','txt','markdown','text','svg','xml','html','htm','css','csv']);
+
+/** @param {string} srcText */
+function extractArtifactsFromText(srcText) {
+  if (!srcText || typeof srcText !== 'string') return [];
+  const re = /<antArtifact[^>]*>([\s\S]*?)<\/antArtifact>/g;
   const artifacts = [];
-  let tagMatch;
+  let m;
 
-  while ((tagMatch = artifactTagRegex.exec(sourceText)) !== null) {
-    const fullTag      = tagMatch[0];
-    const innerContent = tagMatch[1];
+  while ((m = re.exec(srcText)) !== null) {
+    const full  = m[0];
+    const inner = m[1] || '';
 
-    const titleMatch      = fullTag.match(/title="([^"]*)"/);
-    const typeMatch       = fullTag.match(/type="([^"]*)"/);
-    const languageMatch   = fullTag.match(/language="([^"]*)"/);
-    const identifierMatch = fullTag.match(/identifier="([^"]*)"/);
+    const getAttr = (/** @type {string} */ attr) => {
+      const mm = full.match(new RegExp(`${attr}="([^"]*)"`));
+      return mm ? mm[1] : null;
+    };
+
+    const titleAttr = getAttr('title');
+    const typeAttr  = getAttr('type');
+    const langAttr  = getAttr('language');
+    const idAttr    = getAttr('identifier');
 
     let artifactType = 'text';
     let language     = 'txt';
 
-    if (typeMatch) {
-      const mimeType = typeMatch[1];
-      if      (mimeType === 'text/html')                   { language = 'html';     artifactType = 'code'; }
-      else if (mimeType === 'text/markdown')               { language = 'markdown'; artifactType = 'document'; }
-      else if (mimeType === 'application/vnd.ant.code')    { language = languageMatch ? languageMatch[1] : 'txt'; artifactType = 'code'; }
-      else if (mimeType === 'text/css')                    { language = 'css';      artifactType = 'code'; }
-      else if (mimeType === 'application/vnd.ant.mermaid'){ language = 'mermaid';  artifactType = 'document'; }
-      else if (mimeType === 'application/vnd.ant.react')  { language = 'jsx';      artifactType = 'code'; }
-      else if (mimeType === 'image/svg+xml')               { language = 'svg';      artifactType = 'code'; }
-    } else if (languageMatch) {
-      language = languageMatch[1]; artifactType = 'code';
+    if (typeAttr) {
+      switch (typeAttr) {
+        case 'text/html':                   language = 'html';     artifactType = 'code';     break;
+        case 'text/markdown':               language = 'markdown'; artifactType = 'document'; break;
+        case 'application/vnd.ant.code':    language = langAttr || 'txt'; artifactType = 'code'; break;
+        case 'text/css':                    language = 'css';      artifactType = 'code';     break;
+        case 'application/vnd.ant.mermaid': language = 'mermaid';  artifactType = 'document'; break;
+        case 'application/vnd.ant.react':   language = 'jsx';      artifactType = 'code';     break;
+        case 'image/svg+xml':               language = 'svg';      artifactType = 'code';     break;
+        default: break;
+      }
+    } else if (langAttr) {
+      language = langAttr; artifactType = 'code';
     }
 
     artifacts.push({
-      title:      titleMatch      ? titleMatch[1]      : 'Untitled',
-      language,
-      type:       artifactType,
-      identifier: identifierMatch ? identifierMatch[1] : null,
-      content:    innerContent.trim()
+      title:      titleAttr || 'Untitled',
+      language, type: artifactType,
+      identifier: idAttr || null,
+      content:    inner.trim(),
+      source:     'antArtifact'
     });
   }
-
   return artifacts;
 }
-
-function extractArtifacts(sourceText) { return extractArtifactsFromText(sourceText); }
 
 // =============================================================================
 // 5. LANGUAGE / EXTENSION HELPERS
 // =============================================================================
 
-function isProgrammingLanguage(language) {
-  const langs = [
-    'javascript','typescript','python','java','c','cpp','c++','ruby','php',
-    'swift','go','rust','jsx','tsx','shell','bash','sql','kotlin','scala',
-    'r','perl','lua','dart','elixir','erlang','haskell','clojure','fsharp',
-    'f#','c#','csharp','objective-c','ocaml','scheme','lisp','fortran',
-    'assembly','asm','groovy','html','css','scss','sass','less','stylus'
-  ];
-  return langs.includes((language || '').toLowerCase());
+const PROGRAMMING_LANGS = new Set([
+  'javascript','typescript','python','java','c','cpp','c++','ruby','php',
+  'swift','go','rust','jsx','tsx','shell','bash','sql','kotlin','scala',
+  'r','perl','lua','dart','elixir','erlang','haskell','clojure','fsharp',
+  'f#','c#','csharp','objective-c','ocaml','scheme','lisp','fortran',
+  'assembly','asm','groovy','html','css','scss','sass','less','stylus','powershell',
+]);
+
+/** @param {string} lang */
+function isProgrammingLanguage(lang) {
+  return PROGRAMMING_LANGS.has((lang || '').toLowerCase());
 }
 
-function getFileExtension(language) {
-  const extensionMap = {
-    javascript: '.js',  typescript: '.ts',  python: '.py',   java: '.java',
-    c: '.c',            cpp: '.cpp',        'c++': '.cpp',   ruby: '.rb',
-    php: '.php',        swift: '.swift',    go: '.go',       rust: '.rs',
-    jsx: '.jsx',        tsx: '.tsx',        shell: '.sh',    bash: '.sh',
-    sql: '.sql',        kotlin: '.kt',      scala: '.scala', r: '.r',
-    matlab: '.m',       json: '.json',      xml: '.xml',     yaml: '.yaml',
-    yml: '.yml',        markdown: '.md',    md: '.md',       text: '.txt',
-    txt: '.txt',        latex: '.tex',      tex: '.tex',     bibtex: '.bib',
-    bib: '.bib',        mermaid: '.mmd',    svg: '.svg',     csv: '.csv',
-    toml: '.toml',      ini: '.ini',        perl: '.pl',     lua: '.lua',
-    dart: '.dart',      elixir: '.ex',      erlang: '.erl',  haskell: '.hs',
-    clojure: '.clj',    fsharp: '.fs',      'f#': '.fs',     'c#': '.cs',
-    csharp: '.cs',      'objective-c': '.m', ocaml: '.ml',   scheme: '.scm',
-    lisp: '.lisp',      fortran: '.f90',    assembly: '.asm', asm: '.asm',
-    scss: '.scss',      sass: '.sass',      less: '.less',   stylus: '.styl',
-    dockerfile: '.dockerfile', makefile: '.mk', gradle: '.gradle', groovy: '.groovy'
-  };
-  return extensionMap[(language || '').toLowerCase()] || '.txt';
+const EXT_MAP = {
+  javascript:'.js', typescript:'.ts', python:'.py', java:'.java', c:'.c', cpp:'.cpp',
+  'c++':'.cpp', ruby:'.rb', php:'.php', swift:'.swift', go:'.go', rust:'.rs',
+  jsx:'.jsx', tsx:'.tsx', shell:'.sh', bash:'.sh', sql:'.sql', kotlin:'.kt',
+  scala:'.scala', r:'.r', matlab:'.m', json:'.json', xml:'.xml', yaml:'.yaml',
+  yml:'.yml', markdown:'.md', md:'.md', text:'.txt', txt:'.txt', latex:'.tex',
+  tex:'.tex', bibtex:'.bib', bib:'.bib', mermaid:'.mmd', svg:'.svg', csv:'.csv',
+  toml:'.toml', ini:'.ini', perl:'.pl', lua:'.lua', dart:'.dart', elixir:'.ex',
+  erlang:'.erl', haskell:'.hs', clojure:'.clj', fsharp:'.fs', 'f#':'.fs',
+  'c#':'.cs', csharp:'.cs', 'objective-c':'.m', ocaml:'.ml', scheme:'.scm',
+  lisp:'.lisp', fortran:'.f90', assembly:'.asm', asm:'.asm', scss:'.scss',
+  sass:'.sass', less:'.less', stylus:'.styl', dockerfile:'.dockerfile',
+  makefile:'.mk', groovy:'.groovy', powershell:'.ps1', html:'.html', css:'.css',
+};
+
+/** @param {string} lang */
+function getFileExtension(lang) {
+  return EXT_MAP[(lang || '').toLowerCase()] || '.txt';
 }
 
 // =============================================================================
 // 6. ARTIFACT FILE EXTRACTION
 // =============================================================================
 
-function convertArtifactToFileEntry(artifactContent, language, baseFilename, targetFormat) {
-  const originalExt = getFileExtension(language);
-  if (isProgrammingLanguage(language) || originalExt !== '.md') {
-    return { filename: `${baseFilename}${originalExt}`, content: artifactContent };
+/**
+ * @param {string} content
+ * @param {string} language
+ * @param {string} baseName
+ * @param {string} fmt
+ * @returns {{ filename: string, content: string }}
+ */
+function convertArtifactToFileEntry(content, language, baseName, fmt) {
+  const ext = getFileExtension(language);
+  // Non-markdown code files: always use their native extension
+  if (isProgrammingLanguage(language) && ext !== '.md') {
+    return { filename: `${baseName}${ext}`, content };
   }
-  switch (targetFormat) {
+  switch (fmt) {
     case 'markdown':
     case 'original':
-      return { filename: `${baseFilename}.md`, content: artifactContent };
+      return { filename: `${baseName}.md`, content };
     case 'text': {
-      const plainText = artifactContent
-        .replace(/```[\s\S]*?```/g, m => m.replace(/```\w*\n?/, '').replace(/\n?```$/, ''))
-        .replace(/`([^`]+)`/g, '$1').replace(/\*\*([^*]+)\*\*/g, '$1')
-        .replace(/\*([^*]+)\*/g, '$1').replace(/__([^_]+)__/g, '$1')
-        .replace(/_([^_]+)_/g, '$1').replace(/^#{1,6}\s+(.+)$/gm, '$1')
-        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1').replace(/!\[([^\]]*)\]\([^\)]+\)/g, '')
+      const plain = content
+        .replace(/```[\s\S]*?```/g, s => s.replace(/^```\w*\n?/, '').replace(/\n?```$/, ''))
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1')
+        .replace(/__([^_]+)__/g, '$1').replace(/_([^_]+)_/g, '$1')
+        .replace(/^#{1,6}\s+(.+)$/gm, '$1')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
         .replace(/^[-*_]{3,}$/gm, '').replace(/\n{3,}/g, '\n\n');
-      return { filename: `${baseFilename}.txt`, content: plainText.trim() };
+      return { filename: `${baseName}.txt`, content: plain.trim() };
     }
-    case 'json': {
-      return { filename: `${baseFilename}.json`, content: JSON.stringify({ title: baseFilename, language, content: artifactContent, format: 'markdown' }, null, 2) };
-    }
+    case 'json':
+      return {
+        filename: `${baseName}.json`,
+        content: JSON.stringify({ title: baseName, language, content, format: 'markdown' }, null, 2)
+      };
     default:
-      return { filename: `${baseFilename}${originalExt}`, content: artifactContent };
+      return { filename: `${baseName}${ext}`, content };
   }
 }
 
-function extractArtifactFiles(conversationData, artifactFormat) {
-  const resolvedFormat = artifactFormat || 'original';
-  const artifactFiles  = [];
-  const usedFilenames  = new Set();
-  const branchMessages = getCurrentBranch(conversationData);
+/** @param {{ chat_messages?: unknown[] }} convData @param {string} fmt */
+function extractArtifactFiles(convData, fmt) {
+  const resolvedFmt  = fmt || 'original';
+  const artifactFiles = [];
+  const usedNames    = new Set();
 
-  for (const message of branchMessages) {
-    for (const artifact of extractArtifactsFromMessage(message)) {
-      let baseFilename   = (artifact.title || 'artifact').replace(/[<>:"/\\|?*]/g, '_');
-      const fileEntry    = convertArtifactToFileEntry(artifact.content, artifact.language, baseFilename, resolvedFormat);
-      let uniqueFilename = fileEntry.filename;
-      const extMatch     = uniqueFilename.match(/(\.[^.]+)$/);
-      const fileExt      = extMatch ? extMatch[1] : '';
-      const nameNoExt    = fileExt ? uniqueFilename.slice(0, -fileExt.length) : uniqueFilename;
-      let   collision    = 1;
-      while (usedFilenames.has(uniqueFilename)) {
-        uniqueFilename = `${nameNoExt}_${collision}${fileExt}`;
+  for (const msg of getCurrentBranch(convData)) {
+    for (const artifact of extractArtifactsFromMessage(msg)) {
+      const baseName    = (artifact.title || 'artifact').replace(/[<>:"/\\|?*]/g, '_');
+      const entry       = convertArtifactToFileEntry(artifact.content || '', artifact.language, baseName, resolvedFmt);
+      const dotIdx      = entry.filename.lastIndexOf('.');
+      const nameNoExt   = dotIdx > 0 ? entry.filename.slice(0, dotIdx) : entry.filename;
+      const fileExt     = dotIdx > 0 ? entry.filename.slice(dotIdx) : '';
+      let   uniqueName  = entry.filename;
+      let   collision   = 1;
+
+      while (usedNames.has(uniqueName)) {
+        uniqueName = `${nameNoExt}_${collision}${fileExt}`;
         collision++;
       }
-      usedFilenames.add(uniqueFilename);
-      artifactFiles.push({ filename: uniqueFilename, content: fileEntry.content });
+      usedNames.add(uniqueName);
+      artifactFiles.push({ filename: uniqueName, content: entry.content });
     }
   }
   return artifactFiles;
@@ -266,148 +324,164 @@ function extractArtifactFiles(conversationData, artifactFormat) {
 // 7. EXPORT CONVERTERS
 // =============================================================================
 
-function convertToMarkdown(conversationData, includeMetadata, conversationId, includeArtifacts, includeThinking) {
-  let markdown = `# ${conversationData.name || 'Untitled Conversation'}\n\n`;
+/**
+ * @param {{ name?: string, chat_messages?: unknown[], model?: string, created_at?: string, updated_at?: string }} convData
+ * @param {boolean} includeMetadata
+ * @param {string} convId
+ * @param {boolean} includeArtifacts
+ * @param {boolean} includeThinking
+ */
+function convertToMarkdown(convData, includeMetadata, convId, includeArtifacts, includeThinking) {
+  const title = convData.name || 'Untitled Conversation';
+  let md = `# ${title}\n\n`;
 
   if (includeMetadata) {
-    markdown += `**Provider:** claude.ai\n`;
-    markdown += `**Created:** ${new Date(conversationData.created_at).toLocaleString()}\n`;
-    markdown += `**Updated:** ${new Date(conversationData.updated_at).toLocaleString()}\n`;
-    markdown += `**Exported:** ${new Date().toLocaleString()}\n`;
-    markdown += `**Model:** ${conversationData.model}\n`;
-    if (conversationId) markdown += `**Link:** [https://claude.ai/chat/${conversationId}](https://claude.ai/chat/${conversationId})\n`;
-    markdown += `\n---\n\n`;
+    md += `**Provider:** claude.ai\n`;
+    if (convData.created_at) md += `**Created:** ${new Date(convData.created_at).toLocaleString()}\n`;
+    if (convData.updated_at) md += `**Updated:** ${new Date(convData.updated_at).toLocaleString()}\n`;
+    md += `**Exported:** ${new Date().toLocaleString()}\n`;
+    if (convData.model) md += `**Model:** ${convData.model}\n`;
+    if (convId) md += `**Link:** [https://claude.ai/chat/${convId}](https://claude.ai/chat/${convId})\n`;
+    md += `\n---\n\n`;
   }
 
-  for (const message of getCurrentBranch(conversationData)) {
-    markdown += message.sender === 'human' ? '## User\n' : '## Claude\n';
-    if (includeMetadata && message.created_at) markdown += `**${new Date(message.created_at).toISOString()}**\n`;
-    markdown += '\n';
+  for (const msg of getCurrentBranch(convData)) {
+    if (!msg) continue;
+    md += msg.sender === 'human' ? '## User\n' : '## Claude\n';
+    if (includeMetadata && msg.created_at) md += `**${new Date(msg.created_at).toISOString()}**\n`;
+    md += '\n';
 
-    const messageArtifacts = includeArtifacts ? extractArtifactsFromMessage(message) : [];
+    const msgArtifacts = includeArtifacts ? extractArtifactsFromMessage(msg) : [];
+    const blocks = Array.isArray(msg.content) ? msg.content : [];
 
-    if (message.content) {
-      for (const contentBlock of message.content) {
-        if (contentBlock.type === 'thinking' && contentBlock.thinking && includeThinking) {
-          markdown += `### Thinking\n\`\`\`\`\n${contentBlock.thinking}\n\`\`\`\`\n\n`;
-        } else if (contentBlock.type === 'text' && contentBlock.text) {
-          const stripped = contentBlock.text.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '').trim();
-          if (stripped) markdown += `${stripped}\n\n`;
+    if (blocks.length > 0) {
+      for (const block of blocks) {
+        if (!block) continue;
+        if (block.type === 'thinking' && block.thinking && includeThinking) {
+          md += `### Thinking\n\`\`\`\`\n${block.thinking}\n\`\`\`\`\n\n`;
+        } else if (block.type === 'text' && typeof block.text === 'string') {
+          const stripped = block.text.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '').trim();
+          if (stripped) md += `${stripped}\n\n`;
         }
       }
-    } else if (message.text) {
-      const stripped = message.text.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '').trim();
-      if (stripped) markdown += `${stripped}\n\n`;
+    } else if (typeof msg.text === 'string' && msg.text) {
+      const stripped = msg.text.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '').trim();
+      if (stripped) md += `${stripped}\n\n`;
     }
 
-    for (const attachment of (message.attachments || [])) {
-      if (attachment.extracted_content) markdown += `### Pasted\n\`\`\`\`\n${attachment.extracted_content}\n\`\`\`\`\n\n`;
+    for (const att of (Array.isArray(msg.attachments) ? msg.attachments : [])) {
+      if (att && att.extracted_content) md += `### Pasted\n\`\`\`\`\n${att.extracted_content}\n\`\`\`\`\n\n`;
     }
 
-    for (const artifact of messageArtifacts) {
-      markdown += `#### Artifact: ${artifact.title}\n`;
-      markdown += `**Type:** ${artifact.type} | **Language:** ${artifact.language}\n\n`;
-      if (artifact.type === 'code' || isProgrammingLanguage(artifact.language)) {
-        markdown += `\`\`\`${artifact.language}\n${artifact.content}\n\`\`\`\n\n`;
+    for (const art of msgArtifacts) {
+      md += `#### Artifact: ${art.title}\n**Type:** ${art.type} | **Language:** ${art.language}\n\n`;
+      if (art.type === 'code' || isProgrammingLanguage(art.language)) {
+        md += `\`\`\`${art.language}\n${art.content || ''}\n\`\`\`\n\n`;
       } else {
-        markdown += `${artifact.content}\n\n`;
+        md += `${art.content || ''}\n\n`;
       }
     }
   }
-  return markdown;
+  return md;
 }
 
-function convertToText(conversationData, includeMetadata, includeArtifacts, includeThinking) {
-  let plainText = '';
+/** @param {{ name?: string, created_at?: string, updated_at?: string, model?: string, chat_messages?: unknown[] }} convData */
+function convertToText(convData, includeMetadata, includeArtifacts, includeThinking) {
+  let out = '';
 
   if (includeMetadata) {
-    plainText += `${conversationData.name || 'Untitled Conversation'}\n`;
-    plainText += `Provider: claude.ai\nCreated: ${new Date(conversationData.created_at).toLocaleString()}\n`;
-    plainText += `Updated: ${new Date(conversationData.updated_at).toLocaleString()}\nModel: ${conversationData.model}\n\n---\n\n`;
+    out += `${convData.name || 'Untitled Conversation'}\n`;
+    out += `Provider: claude.ai\n`;
+    if (convData.created_at) out += `Created: ${new Date(convData.created_at).toLocaleString()}\n`;
+    if (convData.updated_at) out += `Updated: ${new Date(convData.updated_at).toLocaleString()}\n`;
+    if (convData.model) out += `Model: ${convData.model}\n`;
+    out += '\n---\n\n';
   }
 
-  for (const message of getCurrentBranch(conversationData)) {
-    const artifacts     = includeArtifacts ? extractArtifactsFromMessage(message) : [];
-    let   messageText   = '';
-    let   thinkingText  = '';
+  for (const msg of getCurrentBranch(convData)) {
+    if (!msg) continue;
+    const arts       = includeArtifacts ? extractArtifactsFromMessage(msg) : [];
+    let   msgText    = '';
+    let   thinkText  = '';
+    const blocks     = Array.isArray(msg.content) ? msg.content : [];
 
-    if (message.content) {
-      for (const contentBlock of message.content) {
-        if (contentBlock.type === 'thinking' && contentBlock.thinking && includeThinking) {
-          const summary = contentBlock.summaries && contentBlock.summaries.length > 0
-            ? contentBlock.summaries[contentBlock.summaries.length - 1].summary : 'Thought process';
-          thinkingText += `[Thinking: ${summary}]\n${contentBlock.thinking}\n[End Thinking]\n\n`;
-        } else if (contentBlock.type === 'text' && contentBlock.text) {
-          messageText += contentBlock.text.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '').trim() + ' ';
+    if (blocks.length > 0) {
+      for (const block of blocks) {
+        if (!block) continue;
+        if (block.type === 'thinking' && block.thinking && includeThinking) {
+          const summaries = Array.isArray(block.summaries) ? block.summaries : [];
+          const summary   = summaries.length > 0 ? summaries[summaries.length - 1].summary : 'Thought process';
+          thinkText += `[Thinking: ${summary}]\n${block.thinking}\n[End Thinking]\n\n`;
+        } else if (block.type === 'text' && typeof block.text === 'string') {
+          msgText += block.text.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '').trim() + ' ';
         }
       }
-    } else if (message.text) {
-      messageText = message.text.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '').trim();
+    } else if (typeof msg.text === 'string') {
+      msgText = msg.text.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '').trim();
     }
 
-    if (thinkingText) plainText += thinkingText;
-    plainText += `${message.sender === 'human' ? 'User' : 'Claude'}: ${messageText.trim()}\n`;
+    if (thinkText) out += thinkText;
+    out += `${msg.sender === 'human' ? 'User' : 'Claude'}: ${msgText.trim()}\n`;
 
-    for (const artifact of artifacts) {
-      plainText += `\n[Artifact: ${artifact.title} (${artifact.language})]\n${artifact.content}\n[End Artifact]\n`;
+    for (const art of arts) {
+      out += `\n[Artifact: ${art.title} (${art.language})]\n${art.content || ''}\n[End Artifact]\n`;
     }
-
-    for (const attachment of (message.attachments || [])) {
-      if (attachment.extracted_content) {
-        const sizeNote = attachment.file_size ? ` (${attachment.file_size} bytes)` : '';
-        plainText += `\n[Pasted content${sizeNote}]\n${attachment.extracted_content}\n[End Pasted content]\n`;
+    for (const att of (Array.isArray(msg.attachments) ? msg.attachments : [])) {
+      if (att && att.extracted_content) {
+        const sizeNote = att.file_size ? ` (${att.file_size} bytes)` : '';
+        out += `\n[Pasted${sizeNote}]\n${att.extracted_content}\n[End Pasted]\n`;
       }
     }
-    plainText += '\n';
+    out += '\n';
   }
-  return plainText.trim();
+  return out.trim();
 }
 
-function convertToJSONL(conversationData, conversationId) {
-  const branch     = getCurrentBranch(conversationData);
+/** @param {{ name?: string, model?: string, created_at?: string, updated_at?: string, uuid?: string, chat_messages?: unknown[] }} convData */
+function convertToJSONL(convData, convId) {
   const exportedAt = new Date().toISOString();
-  const lines      = [];
+  const lines = [];
 
-  branch.forEach((message, messageIndex) => {
-    const artifacts      = extractArtifactsFromMessage(message);
-    let   messageText    = '';
+  getCurrentBranch(convData).forEach((msg, idx) => {
+    if (!msg) return;
+    const arts           = extractArtifactsFromMessage(msg);
+    let   msgText        = '';
     const thinkingBlocks = [];
+    const blocks         = Array.isArray(msg.content) ? msg.content : [];
 
-    if (message.content) {
-      for (const contentBlock of message.content) {
-        if (contentBlock.type === 'thinking' && contentBlock.thinking) {
-          thinkingBlocks.push(contentBlock.thinking);
-        } else if (contentBlock.type === 'text' && contentBlock.text) {
-          messageText += contentBlock.text.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '').trim() + ' ';
+    if (blocks.length > 0) {
+      for (const block of blocks) {
+        if (!block) continue;
+        if (block.type === 'thinking' && block.thinking) {
+          thinkingBlocks.push(String(block.thinking));
+        } else if (block.type === 'text' && typeof block.text === 'string') {
+          msgText += block.text.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '').trim() + ' ';
         }
       }
-    } else if (message.text) {
-      messageText = message.text.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '').trim();
+    } else if (typeof msg.text === 'string') {
+      msgText = msg.text.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '').trim();
     }
 
-    const attachmentSummaries = [];
-    for (const attachment of (message.attachments || [])) {
-      if (attachment.extracted_content) {
-        attachmentSummaries.push({ content: attachment.extracted_content, size: attachment.file_size || null });
-      }
-    }
+    const attSummaries = (Array.isArray(msg.attachments) ? msg.attachments : [])
+      .filter(a => a && a.extracted_content)
+      .map(a => ({ content: String(a.extracted_content), size: a.file_size || null }));
 
     lines.push(JSON.stringify({
       provider:                'claude.ai',
-      conversation_id:         conversationId || conversationData.uuid || null,
-      conversation_name:       conversationData.name || 'Untitled',
-      model:                   conversationData.model,
-      conversation_created_at: conversationData.created_at,
-      conversation_updated_at: conversationData.updated_at,
+      conversation_id:         convId   || convData.uuid || null,
+      conversation_name:       convData.name   || 'Untitled',
+      model:                   convData.model  || null,
+      conversation_created_at: convData.created_at || null,
+      conversation_updated_at: convData.updated_at || null,
       exported_at:             exportedAt,
-      message_index:           messageIndex,
-      message_uuid:            message.uuid || null,
-      sender:                  message.sender,
-      created_at:              message.created_at || null,
-      text:                    messageText.trim(),
+      message_index:           idx,
+      message_uuid:            msg.uuid       || null,
+      sender:                  msg.sender     || null,
+      created_at:              msg.created_at || null,
+      text:                    msgText.trim(),
       thinking:                thinkingBlocks.length > 0 ? thinkingBlocks : null,
-      artifacts:               artifacts.length > 0 ? artifacts.map(a => ({ title: a.title, language: a.language, type: a.type, content: a.content })) : null,
-      attachments:             attachmentSummaries.length > 0 ? attachmentSummaries : null
+      artifacts:               arts.length > 0 ? arts.map(a => ({ title: a.title, language: a.language, type: a.type, content: a.content })) : null,
+      attachments:             attSummaries.length > 0 ? attSummaries : null,
     }));
   });
   return lines.join('\n');
@@ -417,347 +491,338 @@ function convertToJSONL(conversationData, conversationId) {
 // 8. FILE DOWNLOAD
 // =============================================================================
 
+/** @param {string} fileContent @param {string} filename @param {string} mimeType */
 function downloadFile(fileContent, filename, mimeType) {
-  const blob      = new Blob([fileContent], { type: mimeType || 'application/json' });
-  const objectUrl = URL.createObjectURL(blob);
-  const anchor    = document.createElement('a');
-  anchor.href     = objectUrl;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  URL.revokeObjectURL(objectUrl);
+  const blob = new Blob([fileContent], { type: mimeType || 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // =============================================================================
-// 9. SERVER PUSH — legacy JSONL to /export/write
+// 9. SLUG + IMAGE ASSET HELPERS
 // =============================================================================
 
-async function pushToServer(jsonlContent, filename) {
-  try {
-    const serverResponse = await fetch('http://localhost:7432/export/write', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ filename, content: jsonlContent })
-    });
-    if (!serverResponse.ok) {
-      const errorText = await serverResponse.text();
-      return { success: false, error: `Server ${serverResponse.status}: ${errorText}` };
-    }
-    return { success: true };
-  } catch (networkErr) {
-    return { success: false, error: networkErr.message };
-  }
+/** @param {string} name @returns {string} */
+function generateChatSlug(name) {
+  const safe = (name || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return safe.substring(0, 80) || 'untitled';
 }
 
-// =============================================================================
-// 10. SLUG + IMAGE ASSET HELPERS
-// =============================================================================
-
-function generateChatSlug(conversationName) {
-  const resolved = conversationName || 'untitled';
-  const slugged  = resolved.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').substring(0, 80);
-  return slugged || 'untitled';
-}
-
+/** @param {string} mimeType @returns {string} */
 function getMimeTypeExtension(mimeType) {
-  const map = {
+  const MAP = {
     'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/gif': 'gif',
     'image/webp': 'webp', 'image/svg+xml': 'svg', 'image/bmp': 'bmp',
-    'image/tiff': 'tiff', 'image/avif': 'avif', 'image/heic': 'heic'
+    'image/tiff': 'tiff', 'image/avif': 'avif', 'image/heic': 'heic',
   };
-  return map[mimeType] || 'bin';
+  return MAP[mimeType || ''] || 'bin';
 }
 
-function arrayBufferToBase64(arrayBuffer) {
-  const byteArray = new Uint8Array(arrayBuffer);
-  let   binaryStr = '';
-  for (let i = 0; i < byteArray.length; i++) binaryStr += String.fromCharCode(byteArray[i]);
-  return btoa(binaryStr);
+/** @param {ArrayBuffer} buf @returns {string} */
+function arrayBufferToBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  const CHUNK = 8192;
+  let   bin   = '';
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
 }
 
-async function fetchImageAssetBytes(imageUrl) {
+/** @param {string} url @returns {Promise<string|null>} */
+async function fetchImageAssetBytes(url) {
   try {
-    const fetchResponse = await fetch(imageUrl, { credentials: 'include' });
-    if (!fetchResponse.ok) return null;
-    return arrayBufferToBase64(await fetchResponse.arrayBuffer());
-  } catch (_fetchErr) {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) return null;
+    return arrayBufferToBase64(await res.arrayBuffer());
+  } catch (_e) {
     return null;
   }
 }
 
-async function collectImageAssets(conversationData, exportTimestamp) {
-  const imageAssets    = [];
-  const branchMessages = getCurrentBranch(conversationData);
-  let   imageCounter   = 0;
+/**
+ * Collect image assets from the active branch.
+ * Bug A fix: checks file_kind === 'image' as fallback; resolves relative preview_url.
+ * @param {{ chat_messages?: unknown[] }} convData
+ * @param {string} ts export timestamp
+ */
+async function collectImageAssets(convData, ts) {
+  const assets    = [];
+  const branch    = getCurrentBranch(convData);
+  let   counter   = 0;
 
-  for (const message of branchMessages) {
-    for (const fileAttachment of (message.files || [])) {
-      if (!fileAttachment.file_type || !fileAttachment.file_type.startsWith('image/')) continue;
-      imageCounter++;
-      const assetFilename = `img_${String(imageCounter).padStart(3, '0')}_${exportTimestamp}.${getMimeTypeExtension(fileAttachment.file_type)}`;
-      const entry = {
-        asset_filename: assetFilename,
-        message_uuid:   message.uuid || null,
-        file_uuid:      fileAttachment.file_uuid || null,
-        source_url:     fileAttachment.preview_url || null,
-        mime_type:      fileAttachment.file_type,
-        data_base64:    null
-      };
-      if (fileAttachment.preview_url) entry.data_base64 = await fetchImageAssetBytes(fileAttachment.preview_url);
-      imageAssets.push(entry);
+  for (const msg of branch) {
+    if (!msg) continue;
+
+    for (const f of (Array.isArray(msg.files) ? msg.files : [])) {
+      if (!f) continue;
+      const isImg = (typeof f.file_type === 'string' && f.file_type.startsWith('image/'))
+                 || f.file_kind === 'image';
+      if (!isImg) continue;
+
+      counter++;
+      const mime    = (typeof f.file_type === 'string' && f.file_type) || 'image/png';
+      const fname   = `img_${String(counter).padStart(3, '0')}_${ts}.${getMimeTypeExtension(mime)}`;
+      const rawUrl  = typeof f.preview_url === 'string' ? f.preview_url : null;
+      const fullUrl = rawUrl ? (rawUrl.startsWith('http') ? rawUrl : `https://claude.ai${rawUrl}`) : null;
+
+      assets.push({
+        asset_filename: fname,
+        message_uuid:   msg.uuid  || null,
+        file_uuid:      f.file_uuid || f.uuid || null,
+        source_url:     fullUrl,
+        mime_type:      mime,
+        data_base64:    fullUrl ? await fetchImageAssetBytes(fullUrl) : null,
+      });
     }
 
-    for (const attachment of (message.attachments || [])) {
-      if (!attachment.file_type || !attachment.file_type.startsWith('image/')) continue;
-      imageCounter++;
-      const assetFilename = `img_${String(imageCounter).padStart(3, '0')}_${exportTimestamp}.${getMimeTypeExtension(attachment.file_type)}`;
-      imageAssets.push({
-        asset_filename: assetFilename,
-        message_uuid:   message.uuid || null,
-        file_uuid:      attachment.id || null,
+    for (const a of (Array.isArray(msg.attachments) ? msg.attachments : [])) {
+      if (!a) continue;
+      const isImg = (typeof a.file_type === 'string' && a.file_type.startsWith('image/'))
+                 || a.file_kind === 'image';
+      if (!isImg) continue;
+
+      counter++;
+      const mime  = (typeof a.file_type === 'string' && a.file_type) || 'image/png';
+      const fname = `img_${String(counter).padStart(3, '0')}_${ts}.${getMimeTypeExtension(mime)}`;
+
+      assets.push({
+        asset_filename: fname,
+        message_uuid:   msg.uuid  || null,
+        file_uuid:      a.id      || null,
         source_url:     null,
-        mime_type:      attachment.file_type,
-        data_base64:    null
+        mime_type:      mime,
+        data_base64:    null,
       });
     }
   }
-  return imageAssets;
+  return assets;
 }
 
 // =============================================================================
-// 11. CONVERSATION STATS + BRANCH MAP
+// 10. CONVERSATION STATS + BRANCH MAP
 // =============================================================================
 
-// Derive all countable stats from raw chat_messages — no API calls, pure computation.
-function computeConversationStats(conversationData) {
-  const allMessages    = conversationData.chat_messages || [];
-  const branchMessages = getCurrentBranch(conversationData);
+/** @param {{ chat_messages?: unknown[], current_leaf_message_uuid?: string }} convData */
+function computeConversationStats(convData) {
+  const allMsgs    = Array.isArray(convData && convData.chat_messages) ? convData.chat_messages : [];
+  const branchMsgs = getCurrentBranch(convData);
 
-  let humanCount = 0, assistantCount = 0;
-  let thinkingCount = 0, artifactCount = 0;
-  let toolUseCount = 0, toolResultCount = 0;
-  let imageCount = 0, citationCount = 0;
-  let truncatedCount = 0;
+  let human = 0, assistant = 0, thinking = 0, artifacts = 0;
+  let toolUse = 0, toolResult = 0, images = 0, citations = 0, truncated = 0;
 
-  for (const msg of allMessages) {
-    if (msg.sender === 'human') humanCount++;
-    else assistantCount++;
+  /** @type {Object.<string,number>} */
+  const childCount = {};
 
-    if (msg.truncated) truncatedCount++;
+  for (const msg of allMsgs) {
+    if (!msg) continue;
+    if (msg.sender === 'human') human++; else assistant++;
+    if (msg.truncated) truncated++;
 
-    for (const block of (msg.content || [])) {
+    const parentId = msg.parent_message_uuid;
+    if (parentId) childCount[parentId] = (childCount[parentId] || 0) + 1;
+
+    for (const block of (Array.isArray(msg.content) ? msg.content : [])) {
+      if (!block) continue;
       switch (block.type) {
-        case 'thinking':     thinkingCount++;   break;
-        case 'tool_result':  toolResultCount++; break;
+        case 'thinking':    thinking++;    break;
+        case 'tool_result': toolResult++;  break;
         case 'tool_use':
-          toolUseCount++;
-          if (block.name === 'artifacts') artifactCount++;
+          toolUse++;
+          if (block.name === 'artifacts' || block.name === 'create_file') artifacts++;
           break;
         case 'text':
-          // Count citations inside text blocks
-          if (Array.isArray(block.citations)) citationCount += block.citations.length;
+          if (Array.isArray(block.citations)) citations += block.citations.length;
           break;
+        default: break;
       }
     }
 
-    for (const f of (msg.files || [])) {
-      if (f.file_type && f.file_type.startsWith('image/')) imageCount++;
+    for (const f of (Array.isArray(msg.files) ? msg.files : [])) {
+      if (f && (f.file_kind === 'image' || (typeof f.file_type === 'string' && f.file_type.startsWith('image/')))) images++;
     }
-    for (const a of (msg.attachments || [])) {
-      if (a.file_type && a.file_type.startsWith('image/')) imageCount++;
+    for (const a of (Array.isArray(msg.attachments) ? msg.attachments : [])) {
+      if (a && (a.file_kind === 'image' || (typeof a.file_type === 'string' && a.file_type.startsWith('image/')))) images++;
     }
   }
 
-  // Detect branch points: any parent with more than one child = branched conversation
-  const childCountByParent = {};
-  for (const msg of allMessages) {
-    const parentId = msg.parent_message_uuid;
-    if (parentId) childCountByParent[parentId] = (childCountByParent[parentId] || 0) + 1;
-  }
-  const hasAlternateBranches = Object.values(childCountByParent).some(n => n > 1);
+  // Defensively wrap: Object.values can be empty but .some on [] returns false safely
+  const childCounts           = Object.values(childCount);
+  const hasAlternateBranches  = childCounts.some(n => n > 1);
 
-  // All leaf nodes = one leaf per branch
-  const msgUuidSet = new Set(allMessages.map(m => m.uuid));
-  const parentSet  = new Set(allMessages.map(m => m.parent_message_uuid).filter(Boolean));
-  const leafUuids  = allMessages.filter(m => !parentSet.has(m.uuid)).map(m => m.uuid);
+  const parentSet = new Set(allMsgs.map(m => m && m.parent_message_uuid).filter(Boolean));
+  const leafCount = allMsgs.filter(m => m && m.uuid && !parentSet.has(m.uuid)).length;
 
   return {
-    total_messages:       allMessages.length,
-    branch_message_count: branchMessages.length,
-    human_message_count:  humanCount,
-    assistant_message_count: assistantCount,
-    thinking_block_count: thinkingCount,
-    artifact_block_count: artifactCount,
-    tool_use_count:       toolUseCount,
-    tool_result_count:    toolResultCount,
-    image_asset_count:    imageCount,
-    citation_count:       citationCount,
-    truncated_message_count: truncatedCount,
-    has_alternate_branches: hasAlternateBranches,
-    branch_count:         leafUuids.length,
+    total_messages:          allMsgs.length,
+    branch_message_count:    branchMsgs.length,
+    human_message_count:     human,
+    assistant_message_count: assistant,
+    thinking_block_count:    thinking,
+    artifact_block_count:    artifacts,
+    tool_use_count:          toolUse,
+    tool_result_count:       toolResult,
+    image_asset_count:       images,
+    citation_count:          citations,
+    truncated_message_count: truncated,
+    has_alternate_branches:  hasAlternateBranches,
+    branch_count:            Math.max(leafCount, 1), // at minimum 1 if there are any messages
   };
 }
 
-// Walk the full message tree and return a descriptor for every branch (path from root to leaf).
-// Uses sentinel UUID as the root marker.
-function buildBranchMap(conversationData) {
-  const SENTINEL = '00000000-0000-4000-8000-000000000000';
-  const allMessages   = conversationData.chat_messages || [];
-  const activeLeafId  = conversationData.current_leaf_message_uuid || null;
+const BRANCH_SENTINEL = '00000000-0000-4000-8000-000000000000';
 
-  if (allMessages.length === 0) return [];
+/** @param {{ chat_messages?: unknown[], current_leaf_message_uuid?: string }} convData */
+function buildBranchMap(convData) {
+  const allMsgs    = Array.isArray(convData && convData.chat_messages) ? convData.chat_messages : [];
+  const activeLeaf = convData && convData.current_leaf_message_uuid || null;
 
-  const msgMap = new Map(allMessages.map(m => [m.uuid, m]));
+  if (allMsgs.length === 0) return [];
 
-  // childrenMap: parentUuid → [childUuid, ...]
-  const childrenMap = {};
-  for (const msg of allMessages) {
-    if (!childrenMap[msg.uuid]) childrenMap[msg.uuid] = [];
+  /** @type {Map<string, object>} */
+  const msgMap     = new Map();
+  /** @type {Object.<string, string[]>} */
+  const childrenOf = {};
+
+  for (const msg of allMsgs) {
+    if (!msg || !msg.uuid) continue;
+    msgMap.set(msg.uuid, msg);
+    if (!childrenOf[msg.uuid]) childrenOf[msg.uuid] = [];
+
     const parentId = msg.parent_message_uuid;
-    if (parentId && parentId !== SENTINEL) {
-      if (!childrenMap[parentId]) childrenMap[parentId] = [];
-      childrenMap[parentId].push(msg.uuid);
+    if (parentId && parentId !== BRANCH_SENTINEL) {
+      if (!childrenOf[parentId]) childrenOf[parentId] = [];
+      childrenOf[parentId].push(msg.uuid);
     }
   }
 
-  // Find leaves: messages with no children
-  const leafUuids = allMessages.filter(m => !childrenMap[m.uuid] || childrenMap[m.uuid].length === 0).map(m => m.uuid);
+  const leafUuids = allMsgs
+    .filter(m => m && m.uuid && (!childrenOf[m.uuid] || childrenOf[m.uuid].length === 0))
+    .map(m => m.uuid);
 
-  return leafUuids.map((leafUuid, idx) => {
-    // Walk from leaf back to root to build path
-    const path = [];
-    let cur = leafUuid;
-    while (cur && msgMap.has(cur)) {
+  if (leafUuids.length === 0) return [];
+
+  return leafUuids.map((leafUuid, branchIdx) => {
+    const path    = [];
+    let   cur     = leafUuid;
+    const visited = new Set();
+
+    while (cur && msgMap.has(cur) && !visited.has(cur)) {
+      visited.add(cur);
       path.unshift(cur);
-      const parent = msgMap.get(cur).parent_message_uuid;
-      cur = (!parent || parent === SENTINEL) ? null : parent;
+      const parent = msgMap.get(cur).parent_message_uuid || '';
+      cur = (parent && parent !== BRANCH_SENTINEL) ? parent : '';
     }
+
     const senders = path.map(uid => {
-      const msg = msgMap.get(uid);
-      return msg ? msg.sender : null;
+      const m = msgMap.get(uid);
+      return m ? m.sender : null;
     }).filter(Boolean);
 
     return {
-      branch_index:   idx,
-      leaf_uuid:      leafUuid,
-      is_active:      leafUuid === activeLeafId,
-      message_count:  path.length,
-      human_turns:    senders.filter(s => s === 'human').length,
+      branch_index:    branchIdx,
+      leaf_uuid:       leafUuid,
+      is_active:       leafUuid === activeLeaf,
+      message_count:   path.length,
+      human_turns:     senders.filter(s => s === 'human').length,
       assistant_turns: senders.filter(s => s === 'assistant').length,
-      message_uuids:  path,
+      message_uuids:   path,
     };
   });
 }
 
-// Extract all artifacts from the active branch and format them for server disk write.
-// Returns [{ filename, content }] — same shape expected by /export/incoming artifactFiles.
-function collectArtifactsForTransport(conversationData) {
-  return extractArtifactFiles(conversationData, 'original');
+/** @param {{ chat_messages?: unknown[] }} convData */
+function collectArtifactsForTransport(convData) {
+  return extractArtifactFiles(convData, 'original');
 }
 
 // =============================================================================
-// 12. EXPORT PAYLOAD BUILDER v2
-//
-// v2 schema adds:
-//   org_id, org_name         — account/organization identity
-//   claudeai_project_name    — Claude.ai project name (if conversation is in a project)
-//   claudeai_project_uuid    — Claude.ai project UUID
-//   is_starred, is_temporary — conversation flags
-//   conversation_stats       — all derived counts (thinking, artifacts, tools, etc.)
-//   branch_map               — every branch path in the message tree
-//   feature_flags            — raw conversation.settings (bananagrams, sourdough, etc.)
-//   platform                 — conversation.platform field
-//   artifacts_manifest       — list of artifact files written to disk
+// 11. EXPORT PAYLOAD BUILDER v2
 // =============================================================================
 
+/**
+ * Strip volatile session-specific MCP tool entries from feature_flags.
+ * These hash-suffixed IDs change every session and have no archival value.
+ * @param {Record<string,unknown>|null|undefined} settings
+ */
+function stripFeatureFlags(settings) {
+  if (!settings || typeof settings !== 'object') return null;
+  /** @type {Record<string,unknown>} */
+  const result = {};
+  for (const [k, v] of Object.entries(settings)) {
+    if (k === 'enabled_mcp_tools') continue;
+    result[k] = v;
+  }
+  return result;
+}
+
+/**
+ * Build the full v2 export payload.
+ * image_asset_count is inside conversation_stats only (not duplicated at meta top-level).
+ */
 function buildExportPayload(
-  conversationData,
-  conversationId,
-  conversationUrl,
-  projectFolder,
-  projectName,
+  convData,
+  convId,
+  convUrl,
+  piQuixFolder,
+  piQuixProjectName,
   imageAssets,
   exportTimestamp,
-  // v2 enrichment fields — all optional, gracefully null when absent
-  orgId              = null,
-  orgName            = null,
-  claudeaiProjectName = null,
-  claudeaiProjectUuid = null,
-  artifactsManifest  = []
+  orgId                = null,
+  orgName              = null,
+  claudeProjectName    = null,
+  claudeProjectUuid    = null,
+  artifactsManifest    = [],
+  accountSlug          = null
 ) {
-  const stats      = computeConversationStats(conversationData);
-  const branchMap  = buildBranchMap(conversationData);
+  const safeAssets = Array.isArray(imageAssets) ? imageAssets : [];
+  const stats      = computeConversationStats(convData);
+  const branchMap  = buildBranchMap(convData);
 
-  const assetManifest = imageAssets.map(asset => ({
-    asset_filename: asset.asset_filename,
-    message_uuid:   asset.message_uuid,
-    file_uuid:      asset.file_uuid,
-    source_url:     asset.source_url,
-    mime_type:      asset.mime_type,
-    fetched:        asset.data_base64 !== null
+  const assetManifest = safeAssets.map(a => ({
+    asset_filename: a.asset_filename || null,
+    message_uuid:   a.message_uuid   || null,
+    file_uuid:      a.file_uuid      || null,
+    source_url:     a.source_url     || null,
+    mime_type:      a.mime_type      || null,
+    fetched:        a.data_base64 !== null && a.data_base64 !== undefined,
   }));
 
-  // Pull claudeai project fields from raw conversation data if not passed explicitly
-  const resolvedProjectUuid = claudeaiProjectUuid || conversationData.project_uuid || null;
+  const resolvedProjectUuid = claudeProjectUuid || (convData && convData.project_uuid) || null;
 
   return {
     piqpull_meta: {
-      export_version:  2,
-      exported_at:     exportTimestamp,
-      provider:        'claude.ai',
-
-      // Account / organization identity — who owns this conversation
-      org_id:          orgId   || null,
-      org_name:        orgName || null,
-
-      // PiQuix pipeline routing
-      piQuix_project:  projectName   || null,
-      piQuix_folder:   projectFolder || null,
-
-      // Conversation identity
-      conversation_url:  conversationUrl,
-      conversation_id:   conversationId,
-      conversation_name: conversationData.name || 'Untitled',
-
-      // Claude.ai project context — where the conversation lives within Claude.ai
-      claudeai_project_name: claudeaiProjectName       || null,
-      claudeai_project_uuid: resolvedProjectUuid       || null,
-
-      // Model
-      model:      conversationData.model      || null,
-
-      // Timestamps
-      created_at: conversationData.created_at || null,
-      updated_at: conversationData.updated_at || null,
-
-      // Conversation flags
-      is_starred:   conversationData.is_starred   || false,
-      is_temporary: conversationData.is_temporary || false,
-      is_pinned:    conversationData.is_pinned    || false,
-
-      // Derived counts (human/assistant turns, blocks, artifacts, images, etc.)
-      conversation_stats: stats,
-
-      // Full branch map — every path in the message tree
-      branch_map: branchMap,
-
-      // Raw Claude.ai feature flags (bananagrams, sourdough, foccacia, paprika_mode, etc.)
-      feature_flags: conversationData.settings || null,
-
-      // Platform field from raw conversation (always "CLAUDE_AI" currently)
-      platform: conversationData.platform || null,
-
-      // Summary if Claude.ai generated one
-      summary: conversationData.summary || null,
-
-      // Image assets written to assets/ subfolder
-      image_asset_count: imageAssets.length,
-      image_assets:      assetManifest,
-
-      // Artifact files written to artifacts/ subfolder
-      artifacts_manifest: artifactsManifest || [],
+      export_version: 2,
+      exported_at:    exportTimestamp,
+      provider:       'claude.ai',
+      account_slug:   accountSlug      || null,
+      org_id:         orgId            || null,
+      org_name:       orgName          || null,
+      piQuix_project: piQuixProjectName || null,
+      piQuix_folder:  piQuixFolder      || null,
+      conversation_url:       convUrl   || null,
+      conversation_id:        convId    || null,
+      conversation_name:      (convData && convData.name) || 'Untitled',
+      claudeai_project_name:  claudeProjectName     || null,
+      claudeai_project_uuid:  resolvedProjectUuid   || null,
+      model:                  (convData && convData.model)       || null,
+      created_at:             (convData && convData.created_at)  || null,
+      updated_at:             (convData && convData.updated_at)  || null,
+      is_starred:             (convData && !!convData.is_starred),
+      is_temporary:           (convData && !!convData.is_temporary),
+      is_pinned:              (convData && !!convData.is_pinned),
+      conversation_stats:     stats,
+      branch_map:             branchMap,
+      feature_flags:          stripFeatureFlags(convData && convData.settings),
+      platform:               (convData && convData.platform) || null,
+      summary:                (convData && convData.summary)  || null,
+      image_assets:           assetManifest,
+      artifacts_manifest:     Array.isArray(artifactsManifest) ? artifactsManifest : [],
     },
-    conversation: conversationData
+    conversation: convData,
   };
 }

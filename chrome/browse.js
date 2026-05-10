@@ -1,6 +1,6 @@
-// PiQPull — Browse: Orchestrator
-// Single job: init sequence + event wiring.
-// No business logic. Calls atomic modules only.
+// PiQPull — Browse: Orchestrator v1.2.0
+// FIX Bug 1: applyFiltersAndSort BEFORE autoSelectNewUpdated (filtered must be populated first)
+// NEW: accountSlug loaded from storage and passed through export pipeline
 
 document.addEventListener('DOMContentLoaded', async () => {
 
@@ -30,27 +30,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   await BrowseState.loadPrefs();
   await BrowseState.loadPiQuixProjectSelection();
 
+  // NEW: load account slug
+  await BrowseState.loadAccountSlug();
+
   const serverPushDefault = await BrowseState.loadServerPush();
   const serverPushEl      = document.getElementById('serverPush');
   if (serverPushEl) serverPushEl.checked = serverPushDefault;
 
-  // Org ID + org name — resolveOrgId now returns { orgId, orgName }
+  // Org ID + org name
   const { orgId, orgName } = await BrowseApi.resolveOrgId();
   BrowseState.orgId   = orgId;
   BrowseState.orgName = orgName;
+
+  // NEW: resolve and update account slug via background
+  if (orgId) {
+    const slugResult = await new Promise(resolve =>
+      chrome.runtime.sendMessage({ action: 'fetchAccountSlug', orgId, orgName }, resolve));
+    if (slugResult && slugResult.success) {
+      await BrowseState.saveAccountSlug(slugResult.accountSlug);
+    }
+  }
 
   if (!orgId) {
     BrowseTable.showError('Organization ID not found. Open a Claude.ai tab and reload, or configure in Settings.');
     return;
   }
 
-  // Claude.ai projects (non-fatal — conversations still load if this fails)
+  // Claude.ai projects (non-fatal)
   try {
     const claudeProjects = await BrowseApi.fetchProjects(orgId);
     BrowseState.projects = claudeProjects;
     const projectLookup  = {};
     claudeProjects.forEach(proj => {
-      const projectId   = proj.uuid || proj.id;
+      const projectId = proj.uuid || proj.id;
       projectLookup[projectId] = proj.name || proj.title || 'Untitled Project';
     });
     BrowseState.pMap = projectLookup;
@@ -58,15 +70,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn('PiQPull: Could not load Claude.ai projects:', projectErr.message);
   }
 
-  // PiQuix project picker (non-fatal — routing to incoming requires this but export still works)
+  // PiQuix project picker
   await initPiQuixProjectPicker();
 
   // Conversations
   try {
     const conversations = await BrowseApi.fetchConversations(orgId);
     BrowseState.all = conversations.map(conv => ({ ...conv, model: inferModel(conv) }));
-    BrowseTable.autoSelectNewUpdated();
+
+    // FIX Bug 1: applyFiltersAndSort FIRST (populates BrowseState.filtered),
+    //            THEN autoSelectNewUpdated (iterates populated filtered)
     BrowseTable.applyFiltersAndSort();
+    BrowseTable.autoSelectNewUpdated();
+    // Re-render after selection so checkboxes reflect auto-selection
+    BrowseTable.render();
+    BrowseTable.updateStats();
+
   } catch (convErr) {
     BrowseTable.showError(`Failed to load conversations: ${convErr.message}`);
     return;
@@ -77,8 +96,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ---------------------------------------------------------------------------
 
   async function initPiQuixProjectPicker() {
-    const selectEl   = document.getElementById('piQuixProjectSelect');
-    const statusEl   = document.getElementById('browseProjectLoadStatus');
+    const selectEl = document.getElementById('piQuixProjectSelect');
+    const statusEl = document.getElementById('browseProjectLoadStatus');
     if (!selectEl) return;
 
     statusEl.textContent = 'loading…';
@@ -92,22 +111,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     statusEl.textContent = '';
 
-    // Group by navSection for option groups
     const sectionOrder   = [];
     const sectionBuckets = {};
 
     for (const proj of projectResult.piQuixProjects) {
       const sectionKey = proj.navSection || 'OTHER';
-      if (!sectionBuckets[sectionKey]) {
-        sectionBuckets[sectionKey] = [];
-        sectionOrder.push(sectionKey);
-      }
+      if (!sectionBuckets[sectionKey]) { sectionBuckets[sectionKey] = []; sectionOrder.push(sectionKey); }
       sectionBuckets[sectionKey].push(proj);
     }
 
     for (const sectionKey of sectionOrder) {
-      const optGroup       = document.createElement('optgroup');
-      optGroup.label       = sectionKey;
+      const optGroup = document.createElement('optgroup');
+      optGroup.label = sectionKey;
       for (const proj of sectionBuckets[sectionKey]) {
         const optionEl       = document.createElement('option');
         optionEl.value       = proj.folder;
@@ -119,7 +134,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       selectEl.appendChild(optGroup);
     }
 
-    // Wire selection change
     selectEl.addEventListener('change', async (e) => {
       const selectedOption = e.target.selectedOptions[0];
       const folder         = e.target.value;
@@ -166,12 +180,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Checkbox dependencies — chats gates thinking / metadata / inline artifacts
   const chatsCheckbox = document.getElementById('includeChats');
   const gatedCheckboxes = ['includeThinking', 'includeMetadata', 'includeArtifacts']
-    .map(elId => document.getElementById(elId));
+    .map(elId => document.getElementById(elId)).filter(Boolean);
 
   function syncGatedCheckboxes() {
     const chatsEnabled = chatsCheckbox.checked;
     gatedCheckboxes.forEach(el => {
-      if (!el) return;
       el.disabled = !chatsEnabled;
       if (!chatsEnabled) el.checked = false;
     });
@@ -213,6 +226,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (dateFmtEl) dateFmtEl.textContent = BrowseState.dateFormat === 'mdy' ? 'M/D/Y' : 'D/M/Y';
     const timeFmtEl = document.getElementById('timeFormatLabel');
     if (timeFmtEl) timeFmtEl.textContent = BrowseState.timeFormat;
+    const slugEl = document.getElementById('accountSlugDisplay');
+    if (slugEl) slugEl.textContent = BrowseState.accountSlug || 'unknown';
   }
 
   document.getElementById('themeToggle').addEventListener('click', () => {
@@ -228,7 +243,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       await navigator.clipboard.writeText(BrowseState.orgId);
       BrowseExport.showToast('Org ID copied.');
-    } catch (_clipErr) {
+    } catch (_err) {
       BrowseExport.showToast('Copy failed.', true);
     }
     settingsDropdown.classList.remove('open');
@@ -250,7 +265,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('markAllNew').addEventListener('click', async () => {
     await BrowseState.clearAllTimestamps();
     BrowseState.selected.clear();
+    BrowseTable.applyFiltersAndSort();
     BrowseTable.autoSelectNewUpdated();
+    BrowseTable.render();
     BrowseTable.updateStats();
     settingsDropdown.classList.remove('open');
     BrowseExport.showToast('All marked as new.');

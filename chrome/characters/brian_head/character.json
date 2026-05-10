@@ -1,0 +1,31 @@
+{
+  "id":     "brian_head",
+  "name":   "Brian \"Head\" Welch",
+  "label":  "Brian \"Head\" Welch (Korn · Solo)",
+  "credit": "Brian Welch — Save Me from Myself (HarperOne, 2007); verified Blabbermouth interviews",
+  "colors": ["#a0ffa0", "#40cc40", "#c0ffc0", "#60e860"],
+  "phrases": {
+    "init":         ["{n} conversations. When the pain from your past leaves you, sometimes you feel it again on the way out. Export through it.", "Religion is for people afraid of hell. This export is for people who've already been there.", "I found the reason for my breathing. And it's this. And also exporting {n} conversations{proj}.", "God inhabits the praises of his people. He's probably watching this export too. {n} conversations. Let's go."],
+    "fetching":     ["\"{name}\" — still here, still going. Surrendered. Fetching.", "Getting \"{name}\". God does all the work sometimes. Right now it's the API doing the work. Same principle.", "\"{name}\" — I know that I know that I know this fetch will work. I have faith."],
+    "hasThink":     ["{n} thinking blocks. Be still, and know. That is a LOT of being still. But it's beautiful."],
+    "hasArts":      ["{n} artifact(s). Gifts. The most expensive gifts are the free ones you don't expect."],
+    "pushing":      ["Pushing \"{name}\". Jesus shows up and shows off. The server can do the same. Let's see.", "\"{name}\" — I completely surrendered. Stopped fighting. Started pushing."],
+    "pushOk":       ["Saved. There's nothing we can say or do that can separate us from the data now.", "Done. God changed my life completely. This export is just a bonus on top of all that.", "It worked. I found the meaning of life — and apparently of pushing JSON to a local server."],
+    "fetchFail":    ["\"{name}\" failed. The hell leaves you screaming on the way out sometimes. The server did the same."],
+    "pushFail":     ["Server rejected \"{name}\". Life is messy. Some servers don't understand. Moving on."],
+    "retrying":     ["Retry {n} for \"{name}\". I kept going back to Korn. The Lord led me back. Same principle."],
+    "halfway":      ["{pct}%. I didn't know how strong I was until I had no other choice. This export is the same."],
+    "nearEnd":      ["{left} remaining. He that endureth to the end — they get their conversations exported."],
+    "done_all":     ["All {t}. Where the spirit of the Lord is, there is freedom. And a 100% complete export."],
+    "done_partial": ["{ok} of {t} complete. Even prodigal conversations will find their folder eventually. {missed} just need more time."],
+    "cancelled":    ["Cancelled. It's messy and some people don't understand it. I respect that. Peace."],
+    "zipping":      ["Compressing. It was time to be still and let God — and JSZip — do the work."],
+    "zipDone":      ["Done. I didn't have to do anything for this gift — I just clicked Export. Jesus and JSZip provide."],
+    "log":          ["Writing the session log. Every testimony deserves to be recorded."]
+  },
+  "_sources": [
+    {"text": "Religion is when people try to act good because they're afraid to go to hell. A relationship with Jesus Christ is for people like me who have already been to hell.", "type": "book", "work": "Save Me from Myself", "artist": "Brian \"Head\" Welch", "year": 2007, "verified": true},
+    {"text": "And when the pain from your past leaves you, sometimes you have to feel it again on the way out.", "type": "book", "work": "Save Me from Myself", "artist": "Brian \"Head\" Welch", "year": 2007, "verified": true},
+    {"text": "I found the reason for me breathing is this.", "type": "interview", "work": "SoulStock Festival speech", "year": 2025, "verified": true}
+  ]
+}

@@ -1,104 +1,165 @@
-// PiQPull — Options Page Logic
-// Single job: load/save/test settings. No export logic here.
+// PiQPull — Options Page v1.2.0
+// Handles: org ID override, account name aliases, server push preference.
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+'use strict';
 
-function setStatus(elementId, message, type) {
-  const el = document.getElementById(elementId);
-  el.textContent = message;
-  el.className = `status ${type}`;
-}
-
-function clearStatus(elementId) {
-  const el = document.getElementById(elementId);
-  el.textContent = '';
-  el.className = 'status';
-}
-
-// Load saved settings on page open
 document.addEventListener('DOMContentLoaded', () => {
-  chrome.storage.sync.get(['organizationId', 'serverPush'], result => {
-    if (result.organizationId) {
-      document.getElementById('orgId').value = result.organizationId;
+
+  const orgIdEl          = /** @type {HTMLInputElement}  */ (document.getElementById('orgId'));
+  const saveBtn          = document.getElementById('saveBtn');
+  const clearBtn         = document.getElementById('clearBtn');
+  const saveStatusEl     = document.getElementById('saveStatus');
+  const testBtn          = document.getElementById('testBtn');
+  const testStatusEl     = document.getElementById('testStatus');
+  const serverPushEl     = /** @type {HTMLInputElement}  */ (document.getElementById('serverPushGlobal'));
+  const saveServerPushBtn = document.getElementById('saveServerPush');
+  const serverPushStatusEl = document.getElementById('serverPushStatus');
+  const orgAliasListEl   = document.getElementById('orgAliasList');
+  const saveAliasesBtn   = document.getElementById('saveAliasesBtn');
+  const aliasStatusEl    = document.getElementById('aliasStatus');
+  const orgLoadingHint   = document.getElementById('orgLoadingHint');
+
+  // ── Org ID section ────────────────────────────────────────────────────
+
+  chrome.storage.sync.get(['organizationId'], stored => {
+    if (stored.organizationId && orgIdEl) orgIdEl.value = stored.organizationId;
+  });
+
+  saveBtn && saveBtn.addEventListener('click', () => {
+    const val = orgIdEl ? orgIdEl.value.trim() : '';
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (val && !uuidRe.test(val)) {
+      showStatus(saveStatusEl, 'Invalid format. Expected: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', true);
+      return;
     }
-    document.getElementById('serverPushGlobal').checked = !!result.serverPush;
+    chrome.storage.sync.set({ organizationId: val || null }, () =>
+      showStatus(saveStatusEl, val ? 'Saved.' : 'Cleared.', false));
   });
-});
 
-// Save org ID
-document.getElementById('saveBtn').addEventListener('click', () => {
-  const orgId = document.getElementById('orgId').value.trim();
-
-  if (!orgId) {
-    setStatus('saveStatus', 'Enter an Organization ID or use Clear to remove stored value.', 'error');
-    return;
-  }
-
-  if (!UUID_REGEX.test(orgId)) {
-    setStatus('saveStatus', 'Invalid format. Must be UUID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', 'error');
-    return;
-  }
-
-  chrome.storage.sync.set({ organizationId: orgId }, () => {
-    setStatus('saveStatus', 'Saved.', 'success');
-    setTimeout(() => clearStatus('saveStatus'), 2000);
+  clearBtn && clearBtn.addEventListener('click', () => {
+    if (orgIdEl) orgIdEl.value = '';
+    chrome.storage.sync.remove('organizationId', () => showStatus(saveStatusEl, 'Cleared.', false));
   });
-});
 
-// Clear stored org ID (revert to auto-detect)
-document.getElementById('clearBtn').addEventListener('click', () => {
-  chrome.storage.sync.remove('organizationId', () => {
-    document.getElementById('orgId').value = '';
-    setStatus('saveStatus', 'Cleared. Auto-detect will be used.', 'success');
-    setTimeout(() => clearStatus('saveStatus'), 2000);
+  // ── Test connection ───────────────────────────────────────────────────
+
+  testBtn && testBtn.addEventListener('click', async () => {
+    showStatus(testStatusEl, 'Testing…', false);
+    chrome.storage.sync.get(['organizationId'], async stored => {
+      const orgId = stored.organizationId;
+      if (!orgId) { showStatus(testStatusEl, 'No Org ID — set one or auto-detect by opening a Claude.ai tab.', true); return; }
+      try {
+        const res = await fetch(
+          `https://claude.ai/api/organizations/${orgId}/chat_conversations?limit=1`,
+          { credentials: 'include', headers: { Accept: 'application/json' } }
+        );
+        if (res.ok) {
+          showStatus(testStatusEl, `Connection OK (HTTP ${res.status}).`, false);
+        } else {
+          showStatus(testStatusEl, `Failed — HTTP ${res.status}. Check that you're logged in to Claude.ai.`, true);
+        }
+      } catch (e) {
+        showStatus(testStatusEl, `Network error: ${e.message}`, true);
+      }
+    });
   });
-});
 
-// Save server push preference
-document.getElementById('saveServerPush').addEventListener('click', () => {
-  const enabled = document.getElementById('serverPushGlobal').checked;
-  chrome.storage.sync.set({ serverPush: enabled }, () => {
-    setStatus('serverPushStatus', `Server push default set to: ${enabled ? 'ON' : 'OFF'}.`, 'success');
-    setTimeout(() => clearStatus('serverPushStatus'), 2000);
+  // ── Server push preference ────────────────────────────────────────────
+
+  chrome.storage.sync.get(['serverPush'], stored => {
+    if (serverPushEl) serverPushEl.checked = !!stored.serverPush;
   });
-});
 
-// Test connection — direct fetch from options page using stored/entered org ID
-document.getElementById('testBtn').addEventListener('click', async () => {
-  const entered = document.getElementById('orgId').value.trim();
-  let orgId = entered;
+  saveServerPushBtn && saveServerPushBtn.addEventListener('click', () => {
+    const val = serverPushEl ? serverPushEl.checked : false;
+    chrome.storage.sync.set({ serverPush: val }, () =>
+      showStatus(serverPushStatusEl, `Server push ${val ? 'enabled' : 'disabled'}.`, false));
+  });
 
-  if (!orgId) {
-    // Fall back to stored
-    orgId = await new Promise(resolve => {
-      chrome.storage.sync.get(['organizationId'], r => resolve(r.organizationId || ''));
+  // ── Account aliases section ───────────────────────────────────────────
+
+  loadKnownOrgs();
+
+  saveAliasesBtn && saveAliasesBtn.addEventListener('click', () => {
+    const inputs = document.querySelectorAll('.alias-input');
+    const updates = [];
+    inputs.forEach(input => {
+      const orgId = /** @type {HTMLElement} */ (input).dataset.orgId;
+      const alias = /** @type {HTMLInputElement} */ (input).value.trim();
+      if (orgId) updates.push({ orgId, alias });
+    });
+
+    chrome.storage.sync.get(['orgAliases'], stored => {
+      const aliases = stored.orgAliases || {};
+      for (const { orgId, alias } of updates) {
+        if (alias) {
+          aliases[orgId] = alias;
+        } else {
+          delete aliases[orgId];
+        }
+      }
+      chrome.storage.sync.set({ orgAliases: aliases }, () => {
+        // Also update currentAccountSlug if applicable
+        showStatus(aliasStatusEl, 'Account names saved.', false);
+      });
+    });
+  });
+
+  // ── Helpers ───────────────────────────────────────────────────────────
+
+  function loadKnownOrgs() {
+    chrome.runtime.sendMessage({ action: 'getKnownOrgs' }, response => {
+      if (!orgAliasListEl) return;
+      if (orgLoadingHint) orgLoadingHint.remove();
+
+      const orgs = (response && Array.isArray(response.orgs)) ? response.orgs : [];
+
+      if (orgs.length === 0) {
+        orgAliasListEl.innerHTML = '<p class="hint">No accounts detected yet. Export a conversation first.</p>';
+        return;
+      }
+
+      orgAliasListEl.innerHTML = '';
+
+      for (const org of orgs) {
+        const emailPrefix = (org.orgName || '').match(/^([^@]+)@/);
+        const fallback    = emailPrefix ? emailPrefix[1] : 'unknown';
+
+        const row   = document.createElement('div');
+        row.className = 'alias-row';
+
+        const label = document.createElement('div');
+        label.className = 'alias-org-info';
+        label.innerHTML = `
+          <span class="alias-org-name">${escHtml(org.orgName || '(unknown org)')}</span>
+          <span class="alias-org-id">${escHtml((org.orgId || '').substring(0, 8))}…</span>
+        `;
+
+        const input = /** @type {HTMLInputElement} */ (document.createElement('input'));
+        input.type        = 'text';
+        input.className   = 'alias-input';
+        input.dataset.orgId = org.orgId || '';
+        input.value       = org.alias || '';
+        input.placeholder = `${fallback} (auto-detected prefix)`;
+        input.maxLength   = 40;
+
+        row.appendChild(label);
+        row.appendChild(input);
+        orgAliasListEl.appendChild(row);
+      }
     });
   }
 
-  if (!orgId) {
-    setStatus('testStatus', 'No Organization ID available. Auto-detect requires an open Claude.ai tab.', 'error');
-    return;
+  /** @param {HTMLElement|null} el @param {string} msg @param {boolean} isError */
+  function showStatus(el, msg, isError) {
+    if (!el) return;
+    el.textContent = msg;
+    el.className = `status ${isError ? 'error' : 'success'}`;
+    setTimeout(() => { if (el) { el.textContent = ''; el.className = 'status'; } }, 6000);
   }
 
-  setStatus('testStatus', 'Testing...', 'success');
-
-  try {
-    const response = await fetch(
-      `https://claude.ai/api/organizations/${orgId}/chat_conversations`,
-      { credentials: 'include', headers: { Accept: 'application/json' } }
-    );
-
-    if (response.ok) {
-      const data = await response.json();
-      setStatus('testStatus', `Connected. Found ${data.length} conversation(s).`, 'success');
-    } else if (response.status === 401) {
-      setStatus('testStatus', 'Not authenticated. Log into Claude.ai first.', 'error');
-    } else if (response.status === 403) {
-      setStatus('testStatus', 'Access denied. Organization ID may be incorrect.', 'error');
-    } else {
-      setStatus('testStatus', `HTTP ${response.status}`, 'error');
-    }
-  } catch (err) {
-    setStatus('testStatus', `Connection error: ${err.message}`, 'error');
+  /** @param {string} s @returns {string} */
+  function escHtml(s) {
+    return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 });

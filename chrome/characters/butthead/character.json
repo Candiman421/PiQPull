@@ -1,0 +1,30 @@
+{
+  "id":     "butthead",
+  "name":   "Butt-Head",
+  "label":  "Butt-Head",
+  "credit": "Mike Judge / Comedy Central (1993–2024)",
+  "colors": ["#b8d4ff", "#a0c8ff", "#90b8f0", "#c0d8ff"],
+  "phrases": {
+    "init":         ["Uh, {n} conversations to export{proj}. Huh huh. That's a number.", "Uh huh huh. {n} conversations. That's more than I usually count. Which is like, three.", "Beavis, we're exporting {n} conversations. Uh huh huh. That's a lot."],
+    "fetching":     ["Uh, fetching \"{name}\" — that's {n} of {t}. Huh huh.", "Uh huh huh. Getting \"{name}\". {n} of {t}.", "Uh... \"{name}\" is being fetched. This is the greatest moment. Huh huh."],
+    "hasThink":     ["This one had {n} thinking blocks. That's more thinking than I've done in my life."],
+    "hasArts":      ["{n} artifact(s). Like in a museum or whatever. Huh huh."],
+    "pushing":      ["Uh, pushing \"{name}\" — {msgs} messages. {model}. Huh huh.", "Uh, sending \"{name}\" to the server. This is the coolest thing I've ever seen."],
+    "pushOk":       ["Uh, that one saved. Huh huh. Good job, server.", "Uh, yeah. It worked. This is the greatest day of my life.", "Saved. Damn we're smooth. Huh huh."],
+    "fetchFail":    ["\"{name}\" broke. This sucks more than anything that has ever sucked."],
+    "pushFail":     ["Server rejected \"{name}\". This is the dumbest server I've ever seen."],
+    "retrying":     ["Uh, trying \"{name}\" again. Attempt {n}. Huh huh."],
+    "halfway":      ["Uh, {pct}% done. That's like, over half. Huh huh."],
+    "nearEnd":      ["Uh, only {left} left. We're almost done. This is the greatest moment. Huh huh."],
+    "done_all":     ["Uh, we got all {t}. That was a lot of work. Huh huh. This is going to be cool."],
+    "done_partial": ["Uh, we got {ok} of {t}. {missed} didn't make it. That sucks."],
+    "cancelled":    ["Uh, you cancelled it. That's fine I guess. Huh huh."],
+    "zipping":      ["Uh, making the zip file now. Huh huh, zipping things."],
+    "zipDone":      ["Uh, the zip is ready. Download it or whatever. Huh huh."],
+    "log":          ["Uh, writing the session log. Huh huh. Writing stuff."]
+  },
+  "_sources": [
+    {"text": "This sucks more than anything that has ever sucked before.", "type": "series", "work": "Beavis and Butt-Head", "year": 1993, "artist": "Mike Judge", "verified": true},
+    {"text": "Uh, close only counts in horseshoes and like... lemonade.", "type": "series", "work": "Beavis and Butt-Head", "year": 1993, "artist": "Mike Judge", "verified": true}
+  ]
+}

@@ -1,14 +1,14 @@
-// PiQPull — Popup Logic
-// Handles: org ID resolution, project picker, export routing, option persistence.
+// PiQPull — Popup Logic v1.2.0
+// Simplified: 3 buttons only. Format/artifact options removed (project route always raw JSON).
+// Added: Export Project Home page button.
 
 // ---------------------------------------------------------------------------
 // Storage helpers
 // ---------------------------------------------------------------------------
 
 function getStoredOrgId() {
-  return new Promise(resolve => {
-    chrome.storage.sync.get(['organizationId'], stored => resolve(stored.organizationId || null));
-  });
+  return new Promise(resolve =>
+    chrome.storage.sync.get(['organizationId'], s => resolve(s.organizationId || null)));
 }
 
 async function resolveOrgId() {
@@ -21,27 +21,36 @@ async function resolveOrgId() {
         });
       });
       if (relayResponse && relayResponse.success && relayResponse.orgId) {
-        return relayResponse.orgId;
+        // Also track org + resolve account slug on successful detection
+        chrome.runtime.sendMessage({
+          action: 'fetchAccountSlug',
+          orgId: relayResponse.orgId,
+          orgName: relayResponse.orgName || null
+        }, () => {});
+        return { orgId: relayResponse.orgId, orgName: relayResponse.orgName || null };
       }
     }
-  } catch (_err) {
-    // fall through to stored value
-  }
-  return getStoredOrgId();
+  } catch (_err) { /* fall through */ }
+  const storedOrgId = await getStoredOrgId();
+  const storedOrgName = await new Promise(resolve =>
+    chrome.storage.sync.get(['orgName'], s => resolve(s.orgName || null)));
+  return { orgId: storedOrgId, orgName: storedOrgName };
+}
+
+function getStoredAccountSlug() {
+  return new Promise(resolve =>
+    chrome.storage.sync.get(['currentAccountSlug'], s => resolve(s.currentAccountSlug || 'unknown')));
 }
 
 function getStoredProjectSelection() {
-  return new Promise(resolve => {
-    chrome.storage.sync.get(['piQuixProjectFolder', 'piQuixProjectName'], stored => {
-      resolve({ folder: stored.piQuixProjectFolder || '', projectName: stored.piQuixProjectName || '' });
-    });
-  });
+  return new Promise(resolve =>
+    chrome.storage.sync.get(['piQuixProjectFolder', 'piQuixProjectName'], s =>
+      resolve({ folder: s.piQuixProjectFolder || '', projectName: s.piQuixProjectName || '' })));
 }
 
 function saveProjectSelection(folder, projectName) {
-  return new Promise(resolve => {
-    chrome.storage.sync.set({ piQuixProjectFolder: folder, piQuixProjectName: projectName }, resolve);
-  });
+  return new Promise(resolve =>
+    chrome.storage.sync.set({ piQuixProjectFolder: folder, piQuixProjectName: projectName }, resolve));
 }
 
 // ---------------------------------------------------------------------------
@@ -49,42 +58,41 @@ function saveProjectSelection(folder, projectName) {
 // ---------------------------------------------------------------------------
 
 function showStatus(message, statusType) {
-  const statusEl      = document.getElementById('status');
-  const resolvedType  = statusType || 'info';
-  statusEl.className  = `status ${resolvedType}`;
+  const statusEl     = document.getElementById('status');
+  const resolvedType = statusType || 'info';
+  statusEl.className = `status ${resolvedType}`;
 
   if (resolvedType === 'error' && (message.includes('403') || message.includes('404'))) {
-    statusEl.innerHTML = `${message}<br>Is your <a href="#" id="statusOpenOptions">Organization ID</a> correct?`;
-    document.getElementById('statusOpenOptions').addEventListener('click', e => {
-      e.preventDefault();
-      chrome.runtime.openOptionsPage();
+    statusEl.innerHTML = `${message}<br>Check <a href="#" id="statusOpenOptions">Settings</a>`;
+    document.getElementById('statusOpenOptions')?.addEventListener('click', e => {
+      e.preventDefault(); chrome.runtime.openOptionsPage();
     });
   } else {
     statusEl.textContent = message;
   }
 
   if (resolvedType === 'success') {
-    setTimeout(() => { statusEl.textContent = ''; statusEl.className = ''; }, 4000);
+    setTimeout(() => { statusEl.textContent = ''; statusEl.className = ''; }, 5000);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Route note — shows actual folder name when project is selected
+// Route note
 // ---------------------------------------------------------------------------
 
-function updateProjectRouteNote(selectedFolder) {
-  const noteEl    = document.getElementById('projectRouteNote');
-  const pathEl    = document.getElementById('projectRoutePath');
-  const modeNote  = document.getElementById('incomingModeNote');
+function updateProjectRouteNote(selectedFolder, accountSlug) {
+  const noteEl = document.getElementById('projectRouteNote');
+  const pathEl = document.getElementById('projectRoutePath');
   if (!noteEl) return;
 
   if (selectedFolder) {
     noteEl.classList.remove('hidden');
-    if (pathEl) pathEl.textContent = `incoming\\${selectedFolder}\\{chat}\\`;
-    if (modeNote) modeNote.classList.remove('hidden');
+    if (pathEl) pathEl.textContent = `incoming\\PiQPull\\${accountSlug || '…'}\\…\\{chat}\\`;
+    // Enable the Project Home button when project is selected
+    document.getElementById('exportProjectHome').disabled = false;
   } else {
     noteEl.classList.add('hidden');
-    if (modeNote) modeNote.classList.add('hidden');
+    document.getElementById('exportProjectHome').disabled = true;
   }
 }
 
@@ -105,8 +113,8 @@ function populatePiQuixProjectPicker(piQuixProjects, storedFolder) {
   }
 
   for (const section of sectionOrder) {
-    const optGroup   = document.createElement('optgroup');
-    optGroup.label   = section;
+    const optGroup = document.createElement('optgroup');
+    optGroup.label = section;
     for (const proj of sectionBuckets[section]) {
       const optionEl               = document.createElement('option');
       optionEl.value               = proj.folder;
@@ -117,17 +125,14 @@ function populatePiQuixProjectPicker(piQuixProjects, storedFolder) {
     }
     selectEl.appendChild(optGroup);
   }
-
-  updateProjectRouteNote(selectEl.value);
 }
 
 async function loadPiQuixProjects() {
   const statusEl       = document.getElementById('projectLoadStatus');
   statusEl.textContent = 'loading…';
 
-  const backgroundResponse = await new Promise(resolve => {
-    chrome.runtime.sendMessage({ action: 'fetchPiQuixProjects' }, resolve);
-  });
+  const backgroundResponse = await new Promise(resolve =>
+    chrome.runtime.sendMessage({ action: 'fetchPiQuixProjects' }, resolve));
 
   if (!backgroundResponse || !backgroundResponse.success) {
     statusEl.textContent = '(server offline)';
@@ -137,33 +142,6 @@ async function loadPiQuixProjects() {
   statusEl.textContent = '';
   const { folder: storedFolder } = await getStoredProjectSelection();
   populatePiQuixProjectPicker(backgroundResponse.piQuixProjects, storedFolder);
-}
-
-// ---------------------------------------------------------------------------
-// Option gathering
-// ---------------------------------------------------------------------------
-
-function gatherExportOptions() {
-  return {
-    format:           document.getElementById('format').value,
-    includeChats:     document.getElementById('includeChats').checked,
-    includeThinking:  document.getElementById('includeThinking').checked,
-    includeMetadata:  document.getElementById('includeMetadata').checked,
-    includeArtifacts: document.getElementById('includeArtifacts').checked,
-    extractArtifacts: document.getElementById('extractArtifacts').checked,
-    artifactFormat:   document.getElementById('artifactFormat').value,
-    flattenArtifacts: document.getElementById('flattenArtifacts').checked,
-    serverPush:       document.getElementById('serverPush').checked
-  };
-}
-
-function getSelectedProject() {
-  const selectEl       = document.getElementById('piQuixProjectSelect');
-  const selectedOption = selectEl.selectedOptions[0];
-  return {
-    folder:      selectEl.value || '',
-    projectName: selectedOption ? (selectedOption.dataset.projectName || '') : ''
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -180,19 +158,27 @@ function extractConversationIdFromUrl(tabUrl) {
     const urlPath = new URL(tabUrl).pathname;
     const idMatch = urlPath.match(/\/chat\/([a-f0-9-]+)/);
     return idMatch ? idMatch[1] : null;
-  } catch (_parseErr) {
+  } catch (_err) {
     return null;
   }
 }
 
+function getSelectedProject() {
+  const selectEl       = document.getElementById('piQuixProjectSelect');
+  const selectedOption = selectEl.selectedOptions[0];
+  return {
+    folder:      selectEl.value || '',
+    projectName: selectedOption ? (selectedOption.dataset.projectName || '') : ''
+  };
+}
+
 // ---------------------------------------------------------------------------
-// Get stored org name (set by content.js detectOrgId)
+// Ensure content script is loaded before any export
 // ---------------------------------------------------------------------------
 
-function getStoredOrgName() {
-  return new Promise(resolve => {
-    chrome.storage.sync.get(['orgName'], stored => resolve(stored.orgName || null));
-  });
+async function ensureContentScript(tabId) {
+  return new Promise(resolve =>
+    chrome.runtime.sendMessage({ action: 'ensureContentScript' }, resolve));
 }
 
 // ---------------------------------------------------------------------------
@@ -204,135 +190,91 @@ document.addEventListener('DOMContentLoaded', async () => {
   const manifest = chrome.runtime.getManifest();
   document.getElementById('header-version').textContent = `v${manifest.version}`;
 
-  // Restore persisted option states
-  chrome.storage.sync.get(['serverPush', 'includeThinking', 'includeMetadata'], stored => {
-    // serverPush: default off
-    if (stored.serverPush) document.getElementById('serverPush').checked = true;
-
-    // Thinking + Metadata: default ON (HTML already has checked, but respect if user changed it)
-    // Only override HTML default if a stored value exists (null = first run, keep HTML default)
-    if (stored.includeThinking === false) document.getElementById('includeThinking').checked = false;
-    if (stored.includeMetadata === false) document.getElementById('includeMetadata').checked = false;
-  });
-
-  // Persist option changes
-  document.getElementById('serverPush').addEventListener('change', e => {
-    chrome.storage.sync.set({ serverPush: e.target.checked });
-  });
-  document.getElementById('includeThinking').addEventListener('change', e => {
-    chrome.storage.sync.set({ includeThinking: e.target.checked });
-  });
-  document.getElementById('includeMetadata').addEventListener('change', e => {
-    chrome.storage.sync.set({ includeMetadata: e.target.checked });
-  });
-
-  // Resolve org ID (also stores orgName via content.js detectOrgId)
-  const orgId = await resolveOrgId();
+  // Resolve org + account slug
+  const { orgId, orgName } = await resolveOrgId();
   if (!orgId) document.getElementById('setupNotice').hidden = false;
 
-  // Load PiQuix project picker
-  await loadPiQuixProjects();
-
-  // Save project selection on change + update route note
-  document.getElementById('piQuixProjectSelect').addEventListener('change', async (e) => {
-    const selectedOption = e.target.selectedOptions[0];
-    const folder         = e.target.value;
-    const projName       = selectedOption ? (selectedOption.dataset.projectName || '') : '';
-    await saveProjectSelection(folder, projName);
-    updateProjectRouteNote(folder);
-  });
-
-  // Checkbox dependency: Chats gates Thinking / Metadata / Inline Artifacts
-  const chatsEl  = document.getElementById('includeChats');
-  const gatedEls = ['includeThinking', 'includeMetadata', 'includeArtifacts']
-    .map(elId => document.getElementById(elId));
-
-  function syncGatedCheckboxes() {
-    const chatsEnabled = chatsEl.checked;
-    gatedEls.forEach(el => {
-      el.disabled = !chatsEnabled;
-      if (!chatsEnabled) el.checked = false;
-    });
+  // Resolve account slug and cache it
+  let accountSlug = 'unknown';
+  if (orgId) {
+    const slugResult = await new Promise(resolve =>
+      chrome.runtime.sendMessage({ action: 'fetchAccountSlug', orgId, orgName }, resolve));
+    if (slugResult && slugResult.success) {
+      accountSlug = slugResult.accountSlug;
+      chrome.storage.sync.set({ currentAccountSlug: accountSlug });
+    }
   }
 
-  chatsEl.addEventListener('change', syncGatedCheckboxes);
-  syncGatedCheckboxes();
+  // Load project picker
+  await loadPiQuixProjects();
 
-  document.getElementById('openOptions').addEventListener('click', e => {
-    e.preventDefault();
-    chrome.runtime.openOptionsPage();
+  // Restore project selection and update route note
+  const { folder: storedFolder } = await getStoredProjectSelection();
+  if (storedFolder) updateProjectRouteNote(storedFolder, accountSlug);
+
+  // Wire project picker changes
+  document.getElementById('piQuixProjectSelect').addEventListener('change', async e => {
+    const selectedOption = e.target.selectedOptions[0];
+    const folder     = e.target.value;
+    const projName   = selectedOption ? (selectedOption.dataset.projectName || '') : '';
+    await saveProjectSelection(folder, projName);
+    updateProjectRouteNote(folder, accountSlug);
+  });
+
+  document.getElementById('openOptions')?.addEventListener('click', e => {
+    e.preventDefault(); chrome.runtime.openOptionsPage();
   });
 });
 
 // ---------------------------------------------------------------------------
-// Export current conversation
+// Export Current Conversation
 // ---------------------------------------------------------------------------
 
 document.getElementById('exportCurrent').addEventListener('click', async () => {
-  const exportBtn      = document.getElementById('exportCurrent');
-  exportBtn.disabled   = true;
+  const exportBtn    = document.getElementById('exportCurrent');
+  exportBtn.disabled = true;
   showStatus('Fetching conversation…', 'info');
 
   try {
-    const orgId      = await resolveOrgId();
-    const orgName    = await getStoredOrgName();
-    const activeTab  = await getActiveClaudeTab();
+    const { orgId, orgName } = await resolveOrgId();
+    const activeTab = await getActiveClaudeTab();
 
-    if (!orgId) throw new Error('Organization ID not configured. Click the setup link above.');
+    if (!orgId) throw new Error('Organization ID not configured. Open Settings to fix.');
     if (!activeTab || !activeTab.url) throw new Error('No active tab detected.');
     if (!activeTab.url.includes('claude.ai')) throw new Error('Navigate to a Claude.ai conversation first.');
 
     const conversationId = extractConversationIdFromUrl(activeTab.url);
     if (!conversationId) throw new Error('Could not detect conversation ID. Open a Claude.ai conversation first.');
 
+    // FIX Bug 4: ensure content script is loaded before sending
+    await ensureContentScript(activeTab.id);
+
     const selectedProject = getSelectedProject();
-    const exportOptions   = gatherExportOptions();
+    const accountSlug     = await getStoredAccountSlug();
 
-    if (selectedProject.folder) {
-      // Project selected → structured /export/incoming path
-      chrome.tabs.sendMessage(activeTab.id, {
-        action:        'exportToIncoming',
-        conversationId,
-        orgId,
-        orgName,
-        projectFolder: selectedProject.folder,
-        projectName:   selectedProject.projectName,
-        tabUrl:        activeTab.url,
-        ...exportOptions
-      }, serverResponse => {
-        if (chrome.runtime.lastError) {
-          showStatus(`Error: ${chrome.runtime.lastError.message}`, 'error');
-        } else if (serverResponse && serverResponse.success) {
-          const fname    = serverResponse.data && serverResponse.data.jsonFilename
-            ? serverResponse.data.jsonFilename : 'saved';
-          const artCount = serverResponse.data && serverResponse.data.artifactCount
-            ? ` · ${serverResponse.data.artifactCount} artifact(s)` : '';
-          showStatus(`✅ ${fname}${artCount}`, 'success');
-        } else {
-          showStatus((serverResponse && serverResponse.error) || 'Export to incoming failed', 'error');
-        }
-        exportBtn.disabled = false;
-      });
+    chrome.tabs.sendMessage(activeTab.id, {
+      action:        'exportToIncoming',
+      conversationId,
+      orgId,
+      orgName,
+      accountSlug,
+      projectFolder: selectedProject.folder,
+      projectName:   selectedProject.projectName,
+      tabUrl:        activeTab.url,
+    }, serverResponse => {
+      if (chrome.runtime.lastError) {
+        showStatus(`Error: ${chrome.runtime.lastError.message}`, 'error');
+      } else if (serverResponse && serverResponse.success) {
+        const fname    = serverResponse.data?.jsonFilename || 'saved';
+        const artCount = serverResponse.data?.artifactCount
+          ? ` · ${serverResponse.data.artifactCount} artifact(s)` : '';
+        showStatus(`✅ ${fname}${artCount}`, 'success');
+      } else {
+        showStatus((serverResponse && serverResponse.error) || 'Export failed', 'error');
+      }
+      exportBtn.disabled = false;
+    });
 
-    } else {
-      // No project → legacy browser download
-      chrome.tabs.sendMessage(activeTab.id, {
-        action: 'exportConversation',
-        conversationId,
-        orgId,
-        orgName,
-        ...exportOptions
-      }, downloadResponse => {
-        if (chrome.runtime.lastError) {
-          showStatus(`Error: ${chrome.runtime.lastError.message}`, 'error');
-        } else if (downloadResponse && downloadResponse.success) {
-          showStatus('Exported to Downloads!', 'success');
-        } else {
-          showStatus((downloadResponse && downloadResponse.error) || 'Export failed', 'error');
-        }
-        exportBtn.disabled = false;
-      });
-    }
   } catch (err) {
     showStatus(err.message, 'error');
     exportBtn.disabled = false;
@@ -340,55 +282,60 @@ document.getElementById('exportCurrent').addEventListener('click', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Export all conversations
-// When a project is selected: open Browse page — that's where the bulk
-// incoming pipeline lives (PiQ Orb, PiQExportSession, per-conv routing).
-// When no project: legacy ZIP download.
+// Download Project Home Page
 // ---------------------------------------------------------------------------
 
-document.getElementById('exportAll').addEventListener('click', async () => {
-  const selectedProject = getSelectedProject();
-
-  if (selectedProject.folder) {
-    // Project selected — redirect to Browse page which has the full pipeline
-    showStatus('Opening Browse page for bulk export…', 'info');
-    chrome.tabs.create({ url: chrome.runtime.getURL('browse.html') });
-    return;
-  }
-
-  // No project selected — legacy ZIP download
-  const exportAllBtn       = document.getElementById('exportAll');
-  exportAllBtn.disabled    = true;
-  showStatus('Fetching all conversations…', 'info');
+document.getElementById('exportProjectHome').addEventListener('click', async () => {
+  const homeBtn    = document.getElementById('exportProjectHome');
+  homeBtn.disabled = true;
+  showStatus('Fetching project home…', 'info');
 
   try {
-    const orgId   = await resolveOrgId();
-    if (!orgId) throw new Error('Organization ID not configured. Click the setup link above.');
+    const { orgId, orgName } = await resolveOrgId();
     const activeTab = await getActiveClaudeTab();
 
+    if (!orgId)   throw new Error('Organization ID not configured.');
+    if (!activeTab || !activeTab.url) throw new Error('No active tab detected.');
+    if (!activeTab.url.includes('claude.ai')) throw new Error('Navigate to a Claude.ai conversation first.');
+
+    const conversationId = extractConversationIdFromUrl(activeTab.url);
+    if (!conversationId) throw new Error('Open a Claude.ai conversation inside a project first.');
+
+    await ensureContentScript(activeTab.id);
+
+    const selectedProject = getSelectedProject();
+    if (!selectedProject.folder) throw new Error('Select a PiQuix project first.');
+
+    const accountSlug = await getStoredAccountSlug();
+
     chrome.tabs.sendMessage(activeTab.id, {
-      action: 'exportAllConversations',
+      action:        'exportProjectHome',
+      conversationId,
       orgId,
-      ...gatherExportOptions()
-    }, bulkResponse => {
+      orgName,
+      accountSlug,
+      projectFolder: selectedProject.folder,
+      tabUrl:        activeTab.url,
+    }, serverResponse => {
       if (chrome.runtime.lastError) {
         showStatus(`Error: ${chrome.runtime.lastError.message}`, 'error');
-      } else if (bulkResponse && bulkResponse.success) {
-        showStatus(bulkResponse.warnings || `Exported ${bulkResponse.count} conversations!`,
-          bulkResponse.warnings ? 'info' : 'success');
+      } else if (serverResponse && serverResponse.success) {
+        const projName = serverResponse.projectName || 'project';
+        showStatus(`✅ ${projName} home saved`, 'success');
       } else {
-        showStatus((bulkResponse && bulkResponse.error) || 'Export failed', 'error');
+        showStatus((serverResponse && serverResponse.error) || 'Project home export failed', 'error');
       }
-      exportAllBtn.disabled = false;
+      homeBtn.disabled = false;
     });
+
   } catch (err) {
     showStatus(err.message, 'error');
-    exportAllBtn.disabled = false;
+    homeBtn.disabled = false;
   }
 });
 
 // ---------------------------------------------------------------------------
-// Open browse page
+// Browse All Conversations
 // ---------------------------------------------------------------------------
 
 document.getElementById('browseConversations').addEventListener('click', () => {

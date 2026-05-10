@@ -15,86 +15,26 @@
 
     <div id="setupNotice" class="status info" hidden>
       Organization ID not configured.
-      <a href="#" id="openOptions">Click here to set it up</a>
+      <a href="#" id="openOptions">Set it up in Settings</a>
     </div>
 
-    <!-- PiQuix project routing — drives /export/incoming when selected -->
-    <div class="option-group" id="projectPickerGroup">
+    <!-- PiQuix project routing -->
+    <div class="option-group">
       <label class="project-label" for="piQuixProjectSelect">
-        PiQuix Project
+        Route to PiQuix
         <span id="projectLoadStatus" class="project-load-status"></span>
       </label>
       <select id="piQuixProjectSelect">
         <option value="">— none / download to Chrome only —</option>
       </select>
-      <!-- Route note — folder name injected dynamically by popup.js -->
       <div id="projectRouteNote" class="route-note hidden">
-        Files → <code id="projectRoutePath">incoming\…\{chat}\</code>
-        <span class="route-note-detail">· all artifacts auto-extracted</span>
+        <code id="projectRoutePath">incoming\PiQPull\…\{chat}\</code>
+        <span class="route-note-detail">· chat JSON + artifacts auto-captured</span>
       </div>
     </div>
 
-    <div class="options">
-      <div class="export-row">
-        <label>
-          Format:
-          <select id="format">
-            <option value="json" selected>JSON</option>
-            <option value="markdown">Markdown</option>
-            <option value="text">Plain Text</option>
-            <option value="jsonl">JSONL</option>
-          </select>
-        </label>
-        <label title="Include conversation messages in the exported file">
-          <input type="checkbox" id="includeChats" checked>
-          Chats
-        </label>
-        <label title="Include extended thinking blocks (Claude's reasoning)">
-          <input type="checkbox" id="includeThinking" checked>
-          Thinking
-        </label>
-        <label title="Add conversation metadata — model, timestamps, URL, org">
-          <input type="checkbox" id="includeMetadata" checked>
-          Metadata
-        </label>
-      </div>
-
-      <div class="export-row">
-        <label>
-          Artifacts:
-          <select id="artifactFormat">
-            <option value="original" selected>Original</option>
-            <option value="markdown">Markdown</option>
-            <option value="text">Plain Text</option>
-            <option value="json">JSON</option>
-          </select>
-        </label>
-        <label title="Embed artifacts inline in conversation text (legacy download only)">
-          <input type="checkbox" id="includeArtifacts">
-          Inline
-        </label>
-        <label title="Extract artifacts as separate files in subfolders (legacy download only)">
-          <input type="checkbox" id="extractArtifacts">
-          Nested
-        </label>
-        <label title="Flat artifact extraction — no subfolders (legacy download only)">
-          <input type="checkbox" id="flattenArtifacts">
-          Flat
-        </label>
-        <label title="Also push JSONL to PiQuix server at localhost:7432/export/write">
-          <input type="checkbox" id="serverPush">
-          PiQuix Push
-        </label>
-      </div>
-
-      <!-- Context note: Artifacts/Format/Thinking/Metadata are ignored when a project is selected -->
-      <div id="incomingModeNote" class="incoming-mode-note hidden">
-        ℹ️ Project selected — raw JSON + artifacts always captured. Format/Inline/Nested/Flat ignored.
-      </div>
-    </div>
-
-    <button id="exportCurrent">Export Current Conversation</button>
-    <button id="exportAll">Export All Conversations</button>
+    <button id="exportCurrent">Export Conversation</button>
+    <button id="exportProjectHome" id="exportProjectHome" disabled>Download Project Home</button>
     <button id="browseConversations">Browse All Conversations</button>
 
     <div id="status"></div>

@@ -1,62 +1,59 @@
-/* PiQPull — Popup Styles */
+/* PiQPull — Popup Styles v1.2.0 */
 
 :root {
-  --bg-color: #1e1e1e;
-  --text-color: #e0e0e0;
-  --border-color: #3a3a3a;
-  --primary-color: #6b52e8;
-  --primary-hover: #7d66f0;
+  --bg-color:       #1e1e1e;
+  --text-color:     #e0e0e0;
+  --border-color:   #3a3a3a;
+  --primary-color:  #6b52e8;
+  --primary-hover:  #7d66f0;
   --secondary-color: #32b34a;
   --secondary-hover: #3cc752;
-  --disabled-bg: #3a3a3a;
-  --success-bg: #1a4d2e;
-  --success-text: #90ee90;
-  --error-bg: #4d1a1a;
-  --error-text: #ff9999;
-  --info-bg: #1a3d4d;
-  --info-text: #87ceeb;
-  --link-color: #8b7aff;
+  --tertiary-color: #3a8fc4;
+  --tertiary-hover: #4aa8e0;
+  --disabled-bg:    #3a3a3a;
+  --success-bg:     #1a4d2e;
+  --success-text:   #90ee90;
+  --error-bg:       #4d1a1a;
+  --error-text:     #ff9999;
+  --info-bg:        #1a3d4d;
+  --info-text:      #87ceeb;
+  --link-color:     #8b7aff;
 }
 
 :root[data-theme="light"] {
-  --bg-color: #f6f7f9;
-  --text-color: #2c313a;
-  --border-color: #e2e4e9;
-  --primary-color: #5d44e8;
-  --primary-hover: #4a35ba;
+  --bg-color:       #f6f7f9;
+  --text-color:     #2c313a;
+  --border-color:   #e2e4e9;
+  --primary-color:  #5d44e8;
+  --primary-hover:  #4a35ba;
   --secondary-color: #10b981;
   --secondary-hover: #059669;
-  --disabled-bg: #e9ecef;
-  --success-bg: #d1fae5;
-  --success-text: #065f46;
-  --error-bg: #fee2e2;
-  --error-text: #991b1b;
-  --info-bg: #e0f2fe;
-  --info-text: #075985;
-  --link-color: #5d44e8;
+  --tertiary-color: #2563eb;
+  --tertiary-hover: #1d4ed8;
+  --disabled-bg:    #e9ecef;
+  --success-bg:     #d1fae5;
+  --success-text:   #065f46;
+  --error-bg:       #fee2e2;
+  --error-text:     #991b1b;
+  --info-bg:        #e0f2fe;
+  --info-text:      #075985;
+  --link-color:     #5d44e8;
 }
 
 body {
-  width: 275px;
+  width: 260px;
   padding: 8px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0;
   background-color: var(--bg-color);
   color: var(--text-color);
-  min-height: 0;
-  max-height: 600px;
+  max-height: 500px;
   overflow-y: auto;
-}
-
-h2 {
-  margin-top: 0;
-  color: var(--text-color);
-  font-size: 16px;
 }
 
 button {
   width: 100%;
-  padding: 8px;
+  padding: 9px;
   margin: 4px 0;
   border: none;
   border-radius: 4px;
@@ -67,24 +64,28 @@ button {
   transition: background 0.2s;
 }
 
-button:hover {
-  background: var(--primary-hover);
-}
+button:hover { background: var(--primary-hover); }
 
 button:disabled {
   background: var(--disabled-bg);
   cursor: not-allowed;
-  color: #999;
+  color: #888;
 }
 
+/* Download Project Home — teal/blue */
+#exportProjectHome {
+  background: var(--tertiary-color);
+}
+#exportProjectHome:hover:not(:disabled) {
+  background: var(--tertiary-hover);
+}
+
+/* Browse — green */
 #browseConversations {
   background: var(--secondary-color);
-  margin-top: 6px;
+  margin-top: 4px;
 }
-
-#browseConversations:hover {
-  background: var(--secondary-hover);
-}
+#browseConversations:hover { background: var(--secondary-hover); }
 
 .status {
   margin: 6px 0;
@@ -92,45 +93,15 @@ button:disabled {
   border-radius: 4px;
   font-size: 12px;
 }
-
-.success {
-  background: var(--success-bg);
-  color: var(--success-text);
-}
-
-.error {
-  background: var(--error-bg);
-  color: var(--error-text);
-}
-
-.info {
-  background: var(--info-bg);
-  color: var(--info-text);
-}
-
-.info a {
-  color: var(--link-color);
-}
-
-.options {
-  margin: 8px 0;
-}
-
-label {
-  display: block;
-  margin: 6px;
-  font-size: 12px;
-  color: var(--text-color);
-}
-
-input[type="checkbox"] {
-  margin-right: 5px;
-}
+.success { background: var(--success-bg); color: var(--success-text); }
+.error   { background: var(--error-bg);   color: var(--error-text); }
+.info    { background: var(--info-bg);    color: var(--info-text); }
+.info a  { color: var(--link-color); }
 
 select {
   width: 100%;
-  padding: 4px;
-  margin-top: 3px;
+  padding: 5px;
+  margin-top: 4px;
   border: 1px solid var(--border-color);
   border-radius: 3px;
   background-color: var(--bg-color);
@@ -139,8 +110,8 @@ select {
 }
 
 #popup-header {
-  margin: -8px -8px 8px -8px;
-  padding: 14px 16px;
+  margin: -8px -8px 10px -8px;
+  padding: 12px 16px;
   background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
   text-align: center;
 }
@@ -153,37 +124,42 @@ select {
 }
 
 #header-version {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255,255,255,0.7);
   font-size: 11px;
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
-.inner {
-  padding: 0 5px;
+.inner { padding: 0 4px; }
+
+.option-group { margin: 0 0 10px; }
+
+.project-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
 }
 
-.export-row {
-  margin-bottom: 8px;
+.project-load-status {
+  font-size: 10px;
+  color: #607080;
+  font-weight: 400;
 }
 
-.export-row + .export-row {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border-color);
-}
-
-/* Route note — shown when a project is selected */
 .route-note {
-  font-size: 11px;
+  font-size: 10px;
   color: #8b9ab0;
-  margin: 4px 0 0 0;
+  margin: 4px 0 0;
   line-height: 1.5;
 }
 
 .route-note code {
   font-size: 10px;
   color: #a0b8d0;
-  background: rgba(100, 140, 200, 0.1);
+  background: rgba(100,140,200,0.1);
   padding: 1px 4px;
   border-radius: 2px;
 }
@@ -192,42 +168,7 @@ select {
   color: #607080;
   font-size: 10px;
   display: block;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .route-note.hidden { display: none; }
-
-/* Inline context note shown when incoming mode is active */
-.incoming-mode-note {
-  font-size: 10px;
-  color: #607080;
-  background: rgba(80, 100, 160, 0.08);
-  border-left: 2px solid #405080;
-  padding: 5px 8px;
-  margin: 8px 0 2px;
-  border-radius: 2px;
-  line-height: 1.4;
-}
-
-.incoming-mode-note.hidden { display: none; }
-
-/* Project picker group */
-.option-group {
-  margin: 8px 0 10px;
-}
-
-.project-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-color);
-  margin: 0 0 4px 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.project-load-status {
-  font-size: 10px;
-  color: #607080;
-  font-weight: 400;
-}

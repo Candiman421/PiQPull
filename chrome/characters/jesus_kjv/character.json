@@ -1,0 +1,31 @@
+{
+  "id":     "jesus_kjv",
+  "name":   "Jesus (KJV)",
+  "label":  "Jesus · King James Version",
+  "credit": "Holy Bible, King James Version (1611) — public domain",
+  "colors": ["#fffbe6", "#ffd700", "#ffffff", "#fff0a0"],
+  "phrases": {
+    "init":         ["Verily I say unto thee: {n} conversations shall be gathered. Fear not.", "Behold, a great download commenceth{proj}. Be of good cheer.", "Ask, and it shall be given thee. Seek, and ye shall find. Fetch, and the server shall open.", "Suffer the conversations to come unto me. All {n} of them."],
+    "fetching":     ["Seek, and ye shall find. Fetching \"{name}\" even now.", "Lo, I reach forth for \"{name}\". The network shall provide.", "Whatsoever ye ask in faith, that shall ye receive. Fetching \"{name}\" now."],
+    "hasThink":     ["{n} thinking blocks found herein. As a man thinketh in his heart, so is he.", "Blessed are they that think deeply, for they shall understand. {n} thoughts captured."],
+    "hasArts":      ["{n} artifact(s) hath been found. Lay not up these on earth where servers may fail — yet store them we shall."],
+    "pushing":      ["Unto the server I send \"{name}\". Let your light so shine.", "Go ye therefore and push \"{name}\" unto all project folders."],
+    "pushOk":       ["Well done, thou good and faithful server. It is saved. Peace be unto it.", "And the conversation was received, and it was very good. It is finished.", "It is finished. Peace be unto this conversation."],
+    "fetchFail":    ["\"{name}\" hath not come through. Father, forgive the server — it knoweth not what it doeth."],
+    "pushFail":     ["The server hath rejected \"{name}\". Shake off the dust. Move to the next."],
+    "retrying":     ["Seventy times seven, I say unto thee — retry. This is attempt {n} for \"{name}\"."],
+    "halfway":      ["Thou hast come through the valley. {pct}% done. Fear not, for I am with thee."],
+    "nearEnd":      ["Only {left} remain. He that endureth unto the end shall have all his conversations exported."],
+    "done_all":     ["It is finished. All {t} conversations have been gathered. Not one was lost."],
+    "done_partial": ["{ok} of {t} received. The good shepherd leaveth not his flock. But we must move on. Even so."],
+    "cancelled":    ["Thou hast chosen to stop. Even so, be at peace. My peace I give unto thee."],
+    "zipping":      ["Behold, I compress all things. The ZIP file cometh. Be not troubled."],
+    "zipDone":      ["The work is complete. Go now and export no more — until next time."],
+    "log":          ["The record shall be written. For every word and deed shall be accounted for."]
+  },
+  "_sources": [
+    {"text": "Ask, and it shall be given you; seek, and ye shall find; knock, and it shall be opened unto you.", "type": "scripture", "work": "Matthew 7:7", "verse": "Matthew 7:7", "year": 1611, "verified": true},
+    {"text": "It is finished.", "type": "scripture", "work": "John 19:30", "verse": "John 19:30", "year": 1611, "verified": true},
+    {"text": "Verily I say unto you.", "type": "scripture", "work": "Multiple passages", "year": 1611, "verified": true}
+  ]
+}

@@ -1,6 +1,5 @@
-// PiQPull — Browse: State
-// Single job: own all mutable state and chrome.storage read/write.
-// No DOM. No API calls. No export logic.
+// PiQPull — Browse: State v1.2.0
+// Added: accountSlug state + loadAccountSlug / saveAccountSlug
 
 const BrowseState = (() => {
   let allConversations       = [];
@@ -8,6 +7,8 @@ const BrowseState = (() => {
   let allProjects            = [];
   let projectsMap            = {};
   let orgId                  = null;
+  let orgName                = null;
+  let accountSlug            = 'unknown';  // NEW v1.2.0
   let sortStack              = [{ field: 'updated', direction: 'desc' }];
   let selectedConversations  = new Set();
   let lastCheckedIndex       = null;
@@ -15,13 +16,8 @@ const BrowseState = (() => {
   let statusFilter           = 'all';
   let dateFormat             = 'mdy';
   let timeFormat             = '12h';
-  let piQuixProjectFolder    = '';  // PiQuix project folder for /export/incoming routing
-  let piQuixProjectName      = '';  // Display name (claudeProject value)
-  let orgName                = null; // Claude.ai account/org name — persisted via detectOrgId
-
-  // ---------------------------------------------------------------------------
-  // Getters / Setters
-  // ---------------------------------------------------------------------------
+  let piQuixProjectFolder    = '';
+  let piQuixProjectName      = '';
 
   return {
     get all()        { return allConversations; },
@@ -34,6 +30,10 @@ const BrowseState = (() => {
     set pMap(v)      { projectsMap = v; },
     get orgId()      { return orgId; },
     set orgId(v)     { orgId = v; },
+    get orgName()    { return orgName; },
+    set orgName(v)   { orgName = v; },
+    get accountSlug()      { return accountSlug; },         // NEW
+    set accountSlug(v)     { accountSlug = v; },            // NEW
     get sortStack()  { return sortStack; },
     set sortStack(v) { sortStack = v; },
     get selected()   { return selectedConversations; },
@@ -46,26 +46,16 @@ const BrowseState = (() => {
     set dateFormat(v)     { dateFormat = v; },
     get timeFormat()      { return timeFormat; },
     set timeFormat(v)     { timeFormat = v; },
-    get piQuixProjectFolder()   { return piQuixProjectFolder; },
-    set piQuixProjectFolder(v)  { piQuixProjectFolder = v; },
-    get piQuixProjectName()     { return piQuixProjectName; },
-    set piQuixProjectName(v)    { piQuixProjectName = v; },
-    get orgName()               { return orgName; },
-    set orgName(v)              { orgName = v; },
-
-    // ---------------------------------------------------------------------------
-    // Export timestamp helpers
-    // ---------------------------------------------------------------------------
+    get piQuixProjectFolder()  { return piQuixProjectFolder; },
+    set piQuixProjectFolder(v) { piQuixProjectFolder = v; },
+    get piQuixProjectName()    { return piQuixProjectName; },
+    set piQuixProjectName(v)   { piQuixProjectName = v; },
 
     isNewOrUpdated(conv) {
       const lastExportTime = exportTimestamps[conv.uuid];
       if (!lastExportTime) return true;
       return new Date(conv.updated_at) > new Date(lastExportTime);
     },
-
-    // ---------------------------------------------------------------------------
-    // chrome.storage persistence
-    // ---------------------------------------------------------------------------
 
     async loadTimestamps() {
       return new Promise(resolve => {
@@ -106,13 +96,13 @@ const BrowseState = (() => {
       });
     },
 
-    async saveDateFormat(selectedFormat) {
-      dateFormat = selectedFormat;
+    async saveDateFormat(fmt) {
+      dateFormat = fmt;
       return new Promise(resolve => chrome.storage.local.set({ dateFormat }, resolve));
     },
 
-    async saveTimeFormat(selectedFormat) {
-      timeFormat = selectedFormat;
+    async saveTimeFormat(fmt) {
+      timeFormat = fmt;
       return new Promise(resolve => chrome.storage.local.set({ timeFormat }, resolve));
     },
 
@@ -138,6 +128,22 @@ const BrowseState = (() => {
       return new Promise(resolve => {
         chrome.storage.sync.set({ piQuixProjectFolder: folder, piQuixProjectName: projectName }, resolve);
       });
+    },
+
+    // NEW v1.2.0: account slug persistence
+    async loadAccountSlug() {
+      return new Promise(resolve => {
+        chrome.storage.sync.get(['currentAccountSlug'], stored => {
+          accountSlug = stored.currentAccountSlug || 'unknown';
+          resolve(accountSlug);
+        });
+      });
+    },
+
+    async saveAccountSlug(slug) {
+      accountSlug = slug;
+      return new Promise(resolve =>
+        chrome.storage.sync.set({ currentAccountSlug: slug }, resolve));
     }
   };
 })();
