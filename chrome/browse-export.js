@@ -619,7 +619,7 @@ const BrowseExport = (() => {
                 OrbController.say('fetchFail', 'fetchFail', [conv.name, fetchErr.message], []);
                 result.seal(null);
                 OrbController.logResult(result);
-                session.addResult(result); // already added but seal updates it
+                // result already in session.results (added at loop start) — seal updates in place
                 break;
               }
               OrbController.say('retrying', 'retrying', [conv.name, fetchAttempts + 1], []);

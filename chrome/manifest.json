@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PiQPull",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Downloads AI conversations into structured format. Claude.ai to begin with. Provider-agnostic.",
   "permissions": [
     "activeTab",
@@ -10,7 +10,8 @@
     "tabs"
   ],
   "host_permissions": [
-    "https://claude.ai/*"
+    "https://claude.ai/*",
+    "http://localhost/*"
   ],
   "action": {
     "default_popup": "popup.html",
