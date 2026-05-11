@@ -1,4 +1,4 @@
-// PiQPull — Browse: Format
+// PiQPull — Browse: Format v1.4.0
 // Single job: pure display formatting. No state mutation. No DOM. No API calls.
 
 const BrowseFormat = (() => {

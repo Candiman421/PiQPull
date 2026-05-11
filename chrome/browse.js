@@ -1,6 +1,6 @@
-// PiQPull — Browse: Orchestrator v1.2.0
-// FIX Bug 1: applyFiltersAndSort BEFORE autoSelectNewUpdated (filtered must be populated first)
-// NEW: accountSlug loaded from storage and passed through export pipeline
+// PiQPull — Browse: Orchestrator v1.4.0
+// Fixed: loadPiQuixProjectSelection + loadServerPush now exist (browse-state v1.4.1)
+// Fixed: mode badge + localModeControls/piquixModeInfo toggled on picker change and init
 
 document.addEventListener('DOMContentLoaded', async () => {
 
@@ -29,13 +29,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   await BrowseState.loadTimestamps();
   await BrowseState.loadPrefs();
   await BrowseState.loadPiQuixProjectSelection();
+  await BrowseState.loadGroupPrefs();
 
   // NEW: load account slug
   await BrowseState.loadAccountSlug();
 
   const serverPushDefault = await BrowseState.loadServerPush();
   const serverPushEl      = document.getElementById('serverPush');
-  if (serverPushEl) serverPushEl.checked = serverPushDefault;
+  if (serverPushEl) {
+    serverPushEl.checked = serverPushDefault;
+    // Persist change so reload restores the last user-set value
+    serverPushEl.addEventListener('change', async () => {
+      await BrowseState.saveServerPush(serverPushEl.checked);
+    });
+  }
 
   // Org ID + org name
   const { orgId, orgName } = await BrowseApi.resolveOrgId();
@@ -134,12 +141,40 @@ document.addEventListener('DOMContentLoaded', async () => {
       selectEl.appendChild(optGroup);
     }
 
+    // Apply mode UI for the stored selection (no change event fires on load)
+    applyDestinationMode(BrowseState.piQuixProjectFolder);
+
     selectEl.addEventListener('change', async (e) => {
       const selectedOption = e.target.selectedOptions[0];
       const folder         = e.target.value;
       const projectName    = selectedOption ? (selectedOption.dataset.projectName || '') : '';
       await BrowseState.savePiQuixProjectSelection(folder, projectName);
+      applyDestinationMode(folder);
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Destination mode toggle
+  // Updates badge + shows/hides localModeControls vs piquixModeInfo.
+  // ---------------------------------------------------------------------------
+
+  function applyDestinationMode(folder) {
+    const badge      = document.getElementById('exportModeBadge');
+    const local      = document.getElementById('localModeControls');
+    const piquix     = document.getElementById('piquixModeInfo');
+    const pathEl     = document.getElementById('piquixRoutePath');
+    const isPiQuix   = !!folder;
+
+    if (badge) {
+      badge.textContent = isPiQuix ? '⬆ PiQuix Server' : '⬇ Local Download';
+      badge.classList.toggle('mode-piquix', isPiQuix);
+      badge.classList.toggle('mode-local',  !isPiQuix);
+    }
+    if (local)  local.classList.toggle('hidden', isPiQuix);
+    if (piquix) piquix.classList.toggle('hidden', !isPiQuix);
+    if (pathEl && isPiQuix) {
+      pathEl.textContent = `incoming\\PiQPull\\${BrowseState.accountSlug}\\${folder}\\{chat}\\`;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -191,6 +226,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   chatsCheckbox.addEventListener('change', syncGatedCheckboxes);
   syncGatedCheckboxes();
+
+  // Group by project toggle
+  const groupByProjectBtn = document.getElementById('groupByProjectBtn');
+  if (groupByProjectBtn) {
+    if (BrowseState.groupByProject) groupByProjectBtn.classList.add('active');
+    groupByProjectBtn.addEventListener('click', async () => {
+      const next = !BrowseState.groupByProject;
+      await BrowseState.saveGroupByProject(next);
+      groupByProjectBtn.classList.toggle('active', next);
+      BrowseTable.applyFiltersAndSort();
+    });
+  }
+
+  // Include project home checkbox
+  const projectHomeEl = document.getElementById('includeProjectHome');
+  if (projectHomeEl) {
+    projectHomeEl.checked = BrowseState.includeProjectHome;
+    projectHomeEl.addEventListener('change', async () => {
+      await BrowseState.saveIncludeProjectHome(projectHomeEl.checked);
+    });
+  }
 
   // Export all / selected
   document.getElementById('exportAllBtn').addEventListener('click', () => {

@@ -1,6 +1,14 @@
-// PiQPull — Shared Utility Functions v1.2.0
+// PiQPull — Shared Utility Functions v1.4.0
 // All functions are defensive: null-safe, array-guarded, no implicit coercion.
 // No unused variables. No var declarations. Strict equality throughout.
+// Re-injection guard: Chrome content scripts run in the page context; re-injecting this file
+// would cause 'const MODEL_TIMELINE already declared' SyntaxError. Guard prevents that.
+if (typeof window !== 'undefined' && window.__piqpullUtils) {
+  // Already initialized in this content script context — stop re-execution.
+  // 'return' at top-level is valid and terminates execution in Chrome content scripts.
+  return; // eslint-disable-line no-useless-return
+}
+if (typeof window !== 'undefined') window.__piqpullUtils = true;
 
 // =============================================================================
 // 1. TIMESTAMP

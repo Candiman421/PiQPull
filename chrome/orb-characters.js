@@ -1,4 +1,4 @@
-// PiQPull — Orb Character System v1.6.0
+// PiQPull — Orb Character System v1.7.0
 // Spray geometry:
 //   Butt-Head — origin (50%,22%), axis 345deg upper-right, spread 200deg (upper-left thru right thru lower-right)
 //   Beavis    — origin (20%,80%), axis 170deg near-left, spread 130deg (upper-left thru left thru lower-left)
@@ -6,6 +6,8 @@
 // say() throttled in browse-export.js: fires every 8th conversation to reduce density.
 // Error panel: persistent entire export session.
 // setDone(): changes Cancel to Done when export completes.
+// v1.7.0: resolveJsonPhrase supports {parts: string[][]} mix-and-match combinatorial phrases.
+//         Character JSON may now include pure strings, string arrays, OR {parts} objects within arrays.
 
 'use strict';
 
@@ -115,11 +117,39 @@ const ARG_MAPS = {
 
 const cap = (s) => (s || '').substring(0, 24);
 
+/**
+ * Resolve a phrase value to a string. Supports three formats in character JSON:
+ *   string       → used as-is
+ *   string[]     → one picked at random
+ *   mixed[]      → each element may be a string OR a {parts: string[][]} object;
+ *                   when a {parts} object is picked, one item from each part-array is
+ *                   joined with a space, giving combinatorial variety from small data.
+ *
+ * Example {parts} entry: {"parts": [["Uh,","Uh huh huh,"],["pushing","sending"],["huh huh.","now."]}
+ * yields 2x2x2 = 8 unique sentences from one JSON entry.
+ */
 function resolveJsonPhrase(phraseVal, key, args) {
   if (!phraseVal) return '';
-  const raw = Array.isArray(phraseVal)
-    ? phraseVal[Math.floor(Math.random() * phraseVal.length)] || ''
-    : String(phraseVal);
+
+  function _pick(v) {
+    if (!v && v !== 0) return '';
+    if (typeof v === 'string') return v;
+    if (Array.isArray(v)) {
+      return _pick(v[Math.floor(Math.random() * v.length)]);
+    }
+    if (typeof v === 'object' && Array.isArray(v.parts)) {
+      // Mix-and-match: pick one item from each part-array, join with space
+      return v.parts
+        .map(partArr => Array.isArray(partArr) && partArr.length > 0
+          ? String(partArr[Math.floor(Math.random() * partArr.length)] || '')
+          : '')
+        .filter(Boolean)
+        .join(' ');
+    }
+    return String(v);
+  }
+
+  const raw = _pick(phraseVal);
   if (!raw) return '';
   const tokens = ARG_MAPS[key] ? ARG_MAPS[key](args || []) : {};
   return raw.replace(/\{(\w+)\}/g, (_, k) =>

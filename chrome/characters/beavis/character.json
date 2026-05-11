@@ -3,30 +3,254 @@
   "id":     "beavis",
   "name":   "Beavis",
   "label":  "Beavis",
-  "credit": "Mike Judge / Comedy Central (1993–2024)",
+  "credit": "Mike Judge / Comedy Central (1993\u20132024)",
   "colors": ["#ffe060", "#ffcc00", "#ffd700", "#ffaa00"],
 
-  "phrases": {
-    "_comment": "Arrays = pick one at random. Tokens: {n} {t} {name} {proj} {msgs} {model} {err} {left} {ok}. done splits into done_all / done_partial.",
+  "_phrase_format_note": "Arrays pick one at random. Items may be strings or {parts: string[][]} objects for combinatorial mix-and-match. Tokens: {n} {t} {name} {proj} {msgs} {model} {err} {left} {ok} {missed} {pct}.",
 
-    "init":         ["Heh heh heh. Export.", "Heh heh! We're gonna do stuff!", "Yeah yeah yeah! This is gonna be cool!", "Heh heh, like, a LOT of chats. Heh heh.", "FIRE! FIRE! Wait — export. Heh heh."],
-    "fetching":     ["Heh heh. Fetch.", "Yeah yeah, get it! HEH!", "Downloading is cool heh heh.", "Get it! GET IT! YEAH! Heh heh!", "Heh heh. The internet. Heh."],
-    "hasThink":     ["Heh, {n} thinking blocks. I think sometimes too. Heh.", "It's thinking SO HARD! Like, more than me! Which is zero! Heh heh heh!"],
-    "hasArts":      ["Heh heh. Artifacts!", "Yeah! Like treasure! Heh!", "Cool! Artifacts are cool! Heh heh heh!", "Heh, artifacts. That's a cool word. Heh."],
-    "pushing":      ["Yeah yeah, push it!", "Heh heh pushing.", "Push! Push! Heh!", "PUSH IT PUSH IT REAL GOOD! Heh heh!"],
-    "pushOk":       ["Heh heh. Done!", "YEAH! Next! Heh!", "It worked! That's cool! Heh heh!", "Damn, we're smooth. Heh heh.", "Heh heh heh. Done. That was cool."],
-    "fetchFail":    ["WHAT?! It broke! Heh heh.", "Heh, that one died. That sucks.", "BROKEN! This sucks MORE THAN ANYTHING! Heh.", "Ugh, it broke. Heh heh. Broke is funny."],
-    "pushFail":     ["Server said NO! Heh heh.", "Heh heh server is being a buttmunch.", "Server SUCKS! That's not cool! Heh!"],
-    "retrying":     ["Try again! Heh heh!", "Yeah once more! Heh!", "DO IT AGAIN! DO IT AGAIN! HEH HEH!", "Retry! That's like, what you do! Heh!"],
-    "halfway":      ["Heh heh half done.", "We're like, in the middle. Heh.", "Half is like, better than zero! Heh heh.", "Heh heh heh. Halfway. That's a word."],
-    "nearEnd":      ["YEAH almost! Heh heh heh!", "So close I can almost feel it! Heh!", "Almost! THIS IS THE GREATEST DAY! HEH!"],
-    "done_all":     ["YEAH! WE DID IT! HEH HEH HEH HEH HEH HEH!"],
-    "done_partial": ["Heh missed some. That sucks.", "Some broke. Heh heh.", "Close enough. Heh heh."],
-    "cancelled":    ["Heh heh. You quit. Heh.", "Loser! Heh heh. Nah jk. Heh.", "You quit? That sucks more than school. Heh."],
-    "zipping":      ["Heh heh. Zipping.", "ZIP FILE! Heh heh heh!", "Making the zip. Heh. Zip is a cool word."],
-    "zipDone":      ["YEAH! It's a ZIP! HEH HEH HEH!", "ZIP FILE! IT'S DONE! YEAH!"],
-    "log":          ["Heh heh. Log.", "Writing stuff. Heh. Stuff.", "Heh heh recording. Like a record. Heh."]
+  "phrases": {
+
+    "init": [
+      "Heh heh heh. Export.",
+      "Heh heh! We're gonna do stuff!",
+      "Yeah yeah yeah! This is gonna be cool!",
+      "FIRE! FIRE! Wait \u2014 export. Heh heh.",
+      "I AM THE GREAT CORNHOLIO! I need exports for my bunghole! Heh!",
+      "Heh heh, that's {n} conversations! HEH!",
+      "We're doing {n} things! YEAH! Heh heh heh!",
+      "{n}?! That's like... a lot! Heh heh heh!",
+      "Exporting is COOL! HEH HEH!",
+      "Heh heh heh. Let's DO this.",
+      "YEAH! {n} chats! This is gonna be the best day! Heh!",
+      "Heh heh. Export. Heh heh. Export. That word is cool. Heh.",
+      { "parts": [["YEAH!","Heh heh!","WOO!"], ["{n} conversations!","{n} things!","so many chats!"], ["This is COOL!","HEH HEH!","Yeah yeah yeah!"]] }
+    ],
+
+    "fetching": [
+      "Heh heh. Fetch.",
+      "Yeah yeah, get it! HEH!",
+      "Downloading is cool heh heh.",
+      "Get it! GET IT! YEAH! Heh heh!",
+      "Heh heh. The internet. Heh.",
+      "Fetching \"{name}\"! That sounds cool! Heh heh!",
+      "YEAH! Getting stuff! HEH HEH!",
+      "Heh. Get. Heh heh.",
+      "The internet goes WHOOOOSH and downloads stuff! Heh heh heh!",
+      "\"{name}\"! That's like a cool name! Heh!",
+      "Heh heh. We are getting the internet right now. Heh.",
+      "Fetching {n} of {t}! YEAH! Heh heh!",
+      { "parts": [["Heh heh!","YEAH!","Get it!"], ["Fetching","Getting","Downloading"], ["\"{name}\"!","that one!","this chat!"], ["Heh heh!","HEH!","Yeah! Heh!"]] }
+    ],
+
+    "hasThink": [
+      "Heh, {n} thinking blocks. I think sometimes too. Heh.",
+      "It's thinking SO HARD! Like, more than me! Which is zero! Heh heh heh!",
+      "THINKING! {n} BLOCKS! THAT'S LIKE SCHOOL BUT COOL! HEH!",
+      "Heh heh. Brain. Heh.",
+      "{n} thoughts! That computer thinks a lot! I respect that! Heh heh!",
+      "Heh heh. Thinking. I tried that once. Heh.",
+      "{n} THINKING BLOCKS! IT'S LIKE IT'S DOING MATH! HEH HEH!",
+      "Woah it thought about stuff {n} times. Heh heh. That's smart."
+    ],
+
+    "hasArts": [
+      "Heh heh. Artifacts!",
+      "Yeah! Like treasure! Heh!",
+      "Cool! Artifacts are cool! Heh heh heh!",
+      "Heh, artifacts. That's a cool word. Heh.",
+      "FILES! IT MADE FILES! THAT'S SO COOL! HEH HEH!",
+      "{n} artifacts! That's like finding treasure! HEH!",
+      "I like files! Heh heh!",
+      "Heh heh. {n} things it made. Heh. That's like art. Heh heh.",
+      "ARTIFACTS! Like Indiana Jones! But different! Heh!"
+    ],
+
+    "pushing": [
+      "Yeah yeah, push it!",
+      "Heh heh pushing.",
+      "Push! Push! Heh!",
+      "PUSH IT PUSH IT REAL GOOD! Heh heh!",
+      "Heh heh. Push. Heh. That's a funny word.",
+      "Sending to server! YEAH! Heh heh!",
+      "HEH HEH! It's uploading! That's cool!",
+      "Heh heh. \"{name}\" is going to the server. Heh.",
+      "YEAH! Sending \"{name}\"! {msgs} messages! HEH!",
+      "Heh heh. {msgs} messages. That's a lot of words. Heh heh.",
+      "UPLOAD! HEH HEH! UPLOAD IS A COOL WORD!",
+      { "parts": [["YEAH!","HEH HEH!","Push it!","Heh heh!"], ["Sending","Uploading","Pushing"], ["\"{name}\"!","this one!","that chat!"], ["HEH!","Heh heh!","YEAH!","heh."]] },
+      { "parts": [["Heh heh.","HEH!","Yeah!"], ["{msgs} messages","a whole conversation","{msgs} turns"], ["and {model}!","heh heh.","is going to the server!"], ["HEH!","Heh heh heh!","YEAH!"]] }
+    ],
+
+    "pushOk": [
+      "Heh heh. Done!",
+      "YEAH! Next! Heh!",
+      "It worked! That's cool! Heh heh!",
+      "Damn, we're smooth. Heh heh.",
+      "Heh heh heh. Done. That was cool.",
+      "SAVED! IT'S SAVED! HEH HEH!",
+      "YES! THAT'S LIKE THE GREATEST THING! HEH!",
+      "Heh. It worked. Heh heh.",
+      "Cool! Next one! YEAH! Heh heh!",
+      "HEH HEH! We are so good at this!",
+      "Heh heh. Yeah. That's how you do it. Heh.",
+      "DONE! THIS IS THE GREATEST! HEH HEH HEH!",
+      { "parts": [["YEAH!","HEH!","Heh heh!"], ["Done!","Saved!","Got it!"], ["That was COOL!","HEH HEH!","heh heh heh!"]] }
+    ],
+
+    "fetchFail": [
+      "WHAT?! It broke! Heh heh.",
+      "Heh, that one died. That sucks.",
+      "BROKEN! This sucks MORE THAN ANYTHING! Heh.",
+      "Ugh, it broke. Heh heh. Broke is funny.",
+      "Heh heh. \"{name}\" didn't work. That sucks.",
+      "ERROR! HEH HEH! That's not funny. Actually... heh heh.",
+      "Heh. It failed. Like school. Heh heh.",
+      "\"{name}\" broke. That sucks more than everything. Heh."
+    ],
+
+    "pushFail": [
+      "Server said NO! Heh heh.",
+      "Heh heh server is being a buttmunch.",
+      "Server SUCKS! That's not cool! Heh!",
+      "Heh. Server rejected it. That's mean. Heh heh.",
+      "NOOO! Server said no! HEH HEH! That sucks!",
+      "The server is being a fartknocker. Heh heh."
+    ],
+
+    "retrying": [
+      "Try again! Heh heh!",
+      "Yeah once more! Heh!",
+      "DO IT AGAIN! DO IT AGAIN! HEH HEH!",
+      "Retry! That's like, what you do! Heh!",
+      "Heh heh. Again. Heh. Again is good.",
+      "Attempt {n}! We don't give up! Heh heh!",
+      "TRY IT AGAIN! IT'S GONNA WORK! HEH!",
+      "Heh. One more time. Heh heh heh."
+    ],
+
+    "halfway": [
+      "Heh heh half done.",
+      "We're like, in the middle. Heh.",
+      "Half is like, better than zero! Heh heh.",
+      "Heh heh heh. Halfway. That's a word.",
+      "HALFWAY! WE'RE HALFWAY! HEH HEH HEH!",
+      "Half! HALF! That's {pct}%! Heh heh!",
+      "{n} done! That's a lot! Heh heh!",
+      "Heh. We're {pct}% there. Heh heh. Percent is a cool word.",
+      "YEAH! {pct} PERCENT! HEH HEH! THAT'S LIKE MATH!"
+    ],
+
+    "nearEnd": [
+      "YEAH almost! Heh heh heh!",
+      "So close I can almost feel it! Heh!",
+      "Almost! THIS IS THE GREATEST DAY! HEH!",
+      "ALMOST DONE! {left} LEFT! HEH HEH!",
+      "YEAH YEAH YEAH! ALMOST! HEH!",
+      "{left} more! Just {left}! YEAH! Heh heh!",
+      "Heh heh. {left} left. That's almost zero! Heh!",
+      "WE'RE ALMOST THERE! {left} MORE! HEH HEH HEH!",
+      "Heh heh. The end is near. Heh. That sounds dramatic. Heh heh."
+    ],
+
+    "done_all": [
+      "YEAH! WE DID IT! HEH HEH HEH HEH HEH HEH!",
+      "ALL {t}! WE GOT ALL {t}! THIS IS THE GREATEST! HEH!",
+      "DONE! IT'S DONE! EVERYTHING IS DONE! HEH HEH HEH!",
+      "YEEAAH! ALL OF THEM! WE RULE! HEH!",
+      "HEH HEH HEH! WE DID ALL {t}! THIS IS COOL!",
+      "ALL {t} CONVERSATIONS! WE SAVED THEM ALL! THIS IS LIKE THE BEST THING! HEH!",
+      "DONE DONE DONE! HEH HEH HEH! YEAH YEAH YEAH!",
+      "WE ARE THE GREATEST EXPORTERS IN THE WORLD! HEH HEH!"
+    ],
+
+    "done_partial": [
+      "Heh missed some. That sucks.",
+      "Some broke. Heh heh.",
+      "Close enough. Heh heh.",
+      "{missed} didn't work. That sucks. But {ok} did! Heh!",
+      "Heh. Some ones failed. That's okay. Heh heh.",
+      "Heh heh. {ok} out of {t}. We tried. Heh.",
+      "{ok} WORKED! {missed} DIDN'T! Heh heh. Mixed feelings."
+    ],
+
+    "cancelled": [
+      "Heh heh. You quit. Heh.",
+      "Loser! Heh heh. Nah jk. Heh.",
+      "You quit? That sucks more than school. Heh.",
+      "CANCELLED! That means STOP! Heh heh.",
+      "You gave up! Heh! That's funny! Heh heh.",
+      "Heh heh. Quitter. Heh. Nah it's okay. Heh.",
+      "Stopped! Heh. Like a stop sign! Heh heh.",
+      "You cancelled it. That's your right as a person. Heh heh."
+    ],
+
+    "zipping": [
+      "Heh heh. Zipping.",
+      "ZIP FILE! Heh heh heh!",
+      "Making the zip. Heh. Zip is a cool word.",
+      "ZIPPING! That sounds fast! Heh heh!",
+      "Like a zipper! But for files! YEAH! Heh heh!",
+      "ZIP! ZIP! HEH HEH! ZIP!",
+      "Heh heh. Compressing. Heh. That's science."
+    ],
+
+    "zipDone": [
+      "YEAH! It's a ZIP! HEH HEH HEH!",
+      "ZIP FILE! IT'S DONE! YEAH!",
+      "The zip is ready! Download it! HEH!",
+      "ZIP ZIP ZIP! HEH HEH! DONE!",
+      "HEH HEH! HERE'S YOUR ZIP FILE! IT'S HUGE! OR SMALL! HEH!",
+      "ZIP IS DONE! THAT WAS SO FAST! HEH HEH HEH!"
+    ],
+
+    "log": [
+      "Heh heh. Log.",
+      "Writing stuff. Heh. Stuff.",
+      "Heh heh recording. Like a record. Heh.",
+      "LOG! Heh heh. That's also a word for a big stick.",
+      "Writing the log! That's like homework but cooler! Heh!",
+      "Heh heh. Loggin'. Heh.",
+      "SESSION LOG! HEH! That sounds important! Heh heh."
+    ]
   },
+
+  "tangents": [
+    "I AM THE GREAT CORNHOLIO! I NEED TP FOR MY BUNGHOLE!",
+    "FIRE! FIRE! FIRE! FIRE! Heh heh heh!",
+    "Are you threatening me?!",
+    "NACHOS! I want nachos! Heh heh!",
+    "Heh heh. 'Push'. Heh.",
+    "Heh. 'Log'. Heh heh heh.",
+    "This would be cool if there was also fire. Heh.",
+    "I'm gonna score someday. Heh heh. Someday.",
+    "I know what's funny. Heh heh. Everything. Heh.",
+    "Heh heh. Butt. Heh heh heh.",
+    "That's cool! EVERYTHING IS COOL! Heh heh!",
+    "My bunghole... it needs things. Heh heh.",
+    "YEAH YEAH YEAH! Heh heh!",
+    "Computers are cool! The internet is cool! Heh!",
+    "I'm hungry. Heh heh. I want a snack.",
+    "Heh heh. What? Heh heh.",
+    "Do it! DO IT! Heh heh!",
+    "This is like the coolest thing since fire. And fire IS the coolest thing. Heh heh.",
+    "BUNGHOLE! Heh heh heh!",
+    "I'd like to see it do that again. Heh heh.",
+    "Heh heh. 'Upload'. That sounds gross. Heh.",
+    "I once did a thing and it worked. Heh heh. This is like that.",
+    "Are we getting paid for this? Heh heh. Cool.",
+    "Heh heh. The server. Heh. That's where the internet lives. Heh heh.",
+    "YEAH YEAH YEAH! HEH HEH HEH! THIS IS AWESOME!",
+    "Heh. Butthead is so smart about computers. Heh heh. For a guy.",
+    "If this was on fire it would be even better. Heh heh.",
+    "Heh heh. Data. Heh. Data is a cool word. Heh heh.",
+    "I AM CORNHOLIO AND I NEED BANDWIDTH FOR MY BUNGHOLE!",
+    "Heh heh. Export. Heh heh. Im-port. Heh heh. These are words. Heh.",
+    "This rules! Everything rules! Heh heh heh!",
+    "Heh heh. Sometimes things work. Heh. This is one of those times.",
+    "HEH HEH HEH! THIS IS GREAT! HEH HEH! YEAH!",
+    "I want to be a professional computer guy. Heh heh. Someday.",
+    "Heh heh heh. We are SO cool right now. Heh."
+  ],
 
   "_sources": [
     {
@@ -47,6 +271,14 @@
     },
     {
       "text": "Damn, we're smooth.",
+      "type": "series",
+      "work": "Beavis and Butt-Head",
+      "year": 1993,
+      "artist": "Mike Judge",
+      "verified": true
+    },
+    {
+      "text": "Are you threatening me?",
       "type": "series",
       "work": "Beavis and Butt-Head",
       "year": 1993,

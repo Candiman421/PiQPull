@@ -2,29 +2,221 @@
   "id":     "butthead",
   "name":   "Butt-Head",
   "label":  "Butt-Head",
-  "credit": "Mike Judge / Comedy Central (1993–2024)",
+  "credit": "Mike Judge / Comedy Central (1993\u20132024)",
   "colors": ["#b8d4ff", "#a0c8ff", "#90b8f0", "#c0d8ff"],
+
+  "_phrase_format_note": "Each key is an array. Items may be strings OR {parts: [[...],[...],...]} objects. A {parts} item picks one element from each inner array and joins with space. This gives combinatorial variety from compact data.",
+
   "phrases": {
-    "init":         ["Uh, {n} conversations to export{proj}. Huh huh. That's a number.", "Uh huh huh. {n} conversations. That's more than I usually count. Which is like, three.", "Beavis, we're exporting {n} conversations. Uh huh huh. That's a lot."],
-    "fetching":     ["Uh, fetching \"{name}\" — that's {n} of {t}. Huh huh.", "Uh huh huh. Getting \"{name}\". {n} of {t}.", "Uh... \"{name}\" is being fetched. This is the greatest moment. Huh huh."],
-    "hasThink":     ["This one had {n} thinking blocks. That's more thinking than I've done in my life."],
-    "hasArts":      ["{n} artifact(s). Like in a museum or whatever. Huh huh."],
-    "pushing":      ["Uh, pushing \"{name}\" — {msgs} messages. {model}. Huh huh.", "Uh, sending \"{name}\" to the server. This is the coolest thing I've ever seen."],
-    "pushOk":       ["Uh, that one saved. Huh huh. Good job, server.", "Uh, yeah. It worked. This is the greatest day of my life.", "Saved. Damn we're smooth. Huh huh."],
-    "fetchFail":    ["\"{name}\" broke. This sucks more than anything that has ever sucked."],
-    "pushFail":     ["Server rejected \"{name}\". This is the dumbest server I've ever seen."],
-    "retrying":     ["Uh, trying \"{name}\" again. Attempt {n}. Huh huh."],
-    "halfway":      ["Uh, {pct}% done. That's like, over half. Huh huh."],
-    "nearEnd":      ["Uh, only {left} left. We're almost done. This is the greatest moment. Huh huh."],
-    "done_all":     ["Uh, we got all {t}. That was a lot of work. Huh huh. This is going to be cool."],
-    "done_partial": ["Uh, we got {ok} of {t}. {missed} didn't make it. That sucks."],
-    "cancelled":    ["Uh, you cancelled it. That's fine I guess. Huh huh."],
-    "zipping":      ["Uh, making the zip file now. Huh huh, zipping things."],
-    "zipDone":      ["Uh, the zip is ready. Download it or whatever. Huh huh."],
-    "log":          ["Uh, writing the session log. Huh huh. Writing stuff."]
+
+    "init": [
+      "Uh, {n} conversations to export{proj}. Huh huh. That's a number.",
+      "Uh huh huh. {n} conversations. That's more than I usually count. Which is like, three.",
+      "Beavis, we're exporting {n} conversations. Uh huh huh.",
+      "Uh, {n}. That's a big number. For me. Huh huh.",
+      "Uh, we got {n} things to download. This is gonna be cool. Huh huh.",
+      "Uh huh huh. {n}. I counted them. With my eyes. Huh huh.",
+      "Uh, this is gonna take a while. I have nowhere to be. Huh huh.",
+      "Uh, {n} conversations. The internet made a lot of stuff. Huh huh.",
+      { "parts": [["Uh,","Uh huh huh.","Beavis,"], ["we got","there's","I count"], ["{n} things","all these conversations","{n} chats"], ["to export. Huh huh.","now. This is the greatest.","huh huh huh."]] }
+    ],
+
+    "fetching": [
+      "Uh, fetching \"{name}\". {n} of {t}. Huh huh.",
+      "Uh huh huh. Getting \"{name}\".",
+      "Uh, downloading stuff. Huh huh.",
+      "Uh... \"{name}\" is being fetched. This is the greatest. Huh huh.",
+      "Uh, \"{name}\". Is that like a band name? Huh huh.",
+      "Uh huh huh. This one's called \"{name}\".",
+      "Uh... the internet is working. Huh huh.",
+      "Uh, {n} of {t}. Almost a third done. Huh huh. Or... something.",
+      "Uh, getting \"{name}\" now. Huh huh.",
+      "Uh huh huh. Fetching. That's a cool word. Huh huh.",
+      { "parts": [["Uh,","Uh huh huh."], ["getting","fetching","downloading"], ["\"{name}\"","this conversation","this one"], [". {n} of {t}. Huh huh.",". Huh huh.",". This is cool."]] }
+    ],
+
+    "hasThink": [
+      "This one had {n} thinking blocks. That's more thinking than I've done in my life.",
+      "Uh, {n} thinking blocks. The computer was thinking really hard. Huh huh.",
+      "Uh huh huh. It thought. A lot. That's more than me. Huh huh.",
+      "Uh, {n} thoughts. I usually have like zero at a time. Huh huh.",
+      "Uh, thinking. I respect that. Huh huh.",
+      "Uh... the computer thinks better than me. Huh huh. That's actually impressive."
+    ],
+
+    "hasArts": [
+      "{n} artifact(s). Like in a museum or whatever. Huh huh.",
+      "Uh, it made files. {n} of them. Huh huh.",
+      "Artifacts. That's actually a cool word. Huh huh.",
+      "Uh, {n} files. The computer made things. Huh huh.",
+      "Uh huh huh. Files. {n} files.",
+      "Uh, the computer made {n} thing(s). Like an artist. Huh huh."
+    ],
+
+    "pushing": [
+      "Uh, pushing \"{name}\" — {msgs} messages. {model}. Huh huh.",
+      "Uh, sending this to the server. Huh huh. The server better take it.",
+      "\"{name}\" — {msgs} messages and {model}. Huh huh. That's pretty cool.",
+      "Uh, this one's going to PiQuix. Huh huh. Wherever that is.",
+      "Uh huh huh. Pushing. This is what it's all about.",
+      "Uh, {msgs} messages. That's like a whole conversation. Huh huh.",
+      "Uh, server. Take this. Huh huh.",
+      "Uh huh huh. We are uploading. This is the greatest thing.",
+      "Uh, \"{name}\" has {msgs} messages. That's a lot of words. Huh huh.",
+      { "parts": [["Uh,","Uh huh huh."], ["pushing","sending","uploading"], ["\"{name}\"","this conversation","this one"], ["to the server. Huh huh.","now. Huh huh huh.","huh huh."]] },
+      { "parts": [["Uh,","Uh huh huh."], ["{msgs} messages","a whole chat","{msgs} turns"], ["and {model}.","from {model}.","huh huh."], ["Pretty cool.","This is smooth.","Huh huh huh."]] }
+    ],
+
+    "pushOk": [
+      "Uh, it saved. This is the greatest day. Huh huh.",
+      "Uh huh huh. Saved. We did it.",
+      "That one worked. Huh huh. They don't all work.",
+      "Server took it. Huh huh. Good job, server.",
+      "Uh, yes. Huh huh. Yes.",
+      "We are so cool. Huh huh.",
+      "Uh, saved. That was smooth. Huh huh huh.",
+      "Done. That is correct. Huh huh.",
+      "Uh huh huh. Nailed it.",
+      "Uh, the server got it. It worked. Huh huh.",
+      "Uh, yes. Huh huh. That's what I'm talking about.",
+      { "parts": [["Uh,","Uh huh huh."], ["saved.","done.","got it."], ["Huh huh.","Huh huh huh.","That was smooth."]] }
+    ],
+
+    "fetchFail": [
+      "\"{name}\" broke. This sucks more than anything that has ever sucked.",
+      "Uh, \"{name}\" failed. That sucks. Huh huh.",
+      "Uh huh huh. That one died.",
+      "Uh, couldn't get \"{name}\". The internet is being dumb. Huh huh.",
+      "Uh, that one broke. {err}. Huh huh.",
+      "This sucks. \"{name}\" didn't work. Huh huh."
+    ],
+
+    "pushFail": [
+      "Server rejected \"{name}\". This is the dumbest server I've ever seen.",
+      "Uh, the server said no. That sucks. Huh huh.",
+      "Uh huh huh. Server broke. That's not cool.",
+      "Uh, \"{name}\" got rejected. Like me at the mall. Huh huh.",
+      "The server is being a buttmunch. Huh huh."
+    ],
+
+    "retrying": [
+      "Uh, trying \"{name}\" again. Attempt {n}. Huh huh.",
+      "Uh huh huh. Once more. Come on.",
+      "Uh, the internet is slow. Trying again. Huh huh.",
+      "Uh, attempt {n}. We don't give up. Well, usually. Huh huh.",
+      "Uh huh huh. Retry. That's what you do."
+    ],
+
+    "halfway": [
+      "Uh, {pct}% done. That's... more than half. Wait, yeah. Huh huh.",
+      "Uh huh huh. We're halfway. Or like, {pct}% of the way.",
+      "Uh, {pct}. Huh huh. Numbers.",
+      "We are at {pct}%. That means {n} down and some left. Huh huh.",
+      "Uh, halfway. Huh huh. The second half is easier. Or... something.",
+      "Uh, {n} done. We're doing this. Huh huh huh."
+    ],
+
+    "nearEnd": [
+      "Uh, only {left} left. We're almost done. This is the greatest moment. Huh huh.",
+      "Uh huh huh. {left} more. Then we're done.",
+      "{left} left. Don't blow it. Huh huh.",
+      "Uh, we're like, almost there. {left} more. Huh huh.",
+      "Uh, {left}. That's almost zero. Huh huh huh.",
+      "Uh huh huh. Almost. This is the best part."
+    ],
+
+    "done_all": [
+      "Uh, we got all {t}. That was actually pretty cool. Huh huh.",
+      "Uh huh huh. Done. We did it. All {t}.",
+      "Uh, all {t} conversations. Exported. We are so cool. Huh huh.",
+      "Done. Huh huh huh. This is the greatest thing. Done.",
+      "Uh, {t} saved. All of them. Huh huh. That is correct.",
+      "Uh huh huh. We rule. All {t}. Done.",
+      "Uh, every single one. {t}. Huh huh. I'm proud of us.",
+      "Uh, that was a lot of work. But we did it. {t}. Huh huh."
+    ],
+
+    "done_partial": [
+      "Uh, we got {ok} of {t}. {missed} broke. That sucks. Huh huh.",
+      "{ok} worked, {missed} didn't. That's a pretty good record. For us. Huh huh.",
+      "Uh... {missed} failed. That sucks. But {ok} is cool. Huh huh.",
+      "Uh, {ok} saved. {missed} didn't make it. Huh huh.",
+      "Uh huh huh. {ok} out of {t}. Could be worse."
+    ],
+
+    "cancelled": [
+      "Uh, you stopped it. That's fine I guess. Huh huh.",
+      "Cancelled. Huh huh. You gave up. I understand.",
+      "Uh, quitting is... also an option. Huh huh.",
+      "You hit cancel. Huh huh. I was gonna do that eventually too.",
+      "Uh, we're done now. Even though we weren't. Huh huh.",
+      "Uh huh huh. Stopped. That's your call."
+    ],
+
+    "zipping": [
+      "Uh, making the zip. Huh huh.",
+      "Zip file. Huh huh. That's a funny name.",
+      "Uh, zipping. The computer is compressing things. Huh huh.",
+      "Uh huh huh. Zipping. Like a zipper. But for data.",
+      "Uh, this part is called compression. Huh huh. I learned that."
+    ],
+
+    "zipDone": [
+      "Uh, the zip file is ready. Download it or whatever. Huh huh.",
+      "Zip done. Huh huh huh.",
+      "Uh, here's your zip. You're welcome. Huh huh.",
+      "Uh huh huh. It's all in one file now. That's efficient."
+    ],
+
+    "log": [
+      "Uh, writing the session log. This is like paperwork. Huh huh.",
+      "Logging. Huh huh.",
+      "Uh, writing stuff down. Huh huh.",
+      "Uh huh huh. Log. Like a tree trunk. But different."
+    ]
   },
+
+  "tangents": [
+    "Uh, this is the greatest thing I have ever seen. Huh huh.",
+    "Uh huh huh. You said 'push'.",
+    "Uh, I'm thinking about getting a tattoo. Huh huh.",
+    "Uh, is this gonna score? Huh huh.",
+    "Uh, Beavis, shut up.",
+    "Uh... this is pretty cool. Huh huh.",
+    "Uh, I am Butt-Head. Huh huh huh.",
+    "Uh, this reminds me of something. Huh huh. I forget what.",
+    "Uh, where's the remote? Huh huh.",
+    "Uh huh huh. Server.",
+    "Uh, maybe we'll get some nachos later. Huh huh.",
+    "Uh, the internet is so cool. Huh huh huh.",
+    "Uh, I think I understand this. Huh huh. Actually, no.",
+    "Uh, computers are pretty smart. For machines. Huh huh.",
+    "Huh huh huh. Data.",
+    "Uh, my butt. Huh huh. That's funny.",
+    "This rules. Huh huh.",
+    "Uh, I'm bored. Huh huh huh. Keep going.",
+    "Uh, technology. Huh huh.",
+    "Uh huh huh. You said 'log'.",
+    "Uh, close only counts in horseshoes and like... lemonade.",
+    "Uh, what if the server doesn't want to? Huh huh. Too bad.",
+    "Uh, I scored once. Huh huh. I think.",
+    "Uh, this would be cooler if there was a music video. Huh huh.",
+    "Uh huh huh. The internet goes bloop.",
+    "Uh, I bet Todd's not doing anything this cool. Huh huh.",
+    "Uh... what if we ran it twice? Huh huh. I don't know why.",
+    "Uh, Beavis said something dumb. Huh huh.",
+    "Uh, I have been operating a computer. Huh huh. That's cool.",
+    "Uh huh huh. Exporting is like... a job. Huh huh. Cool.",
+    "Uh, this is better than TV. Huh huh. Almost.",
+    "Uh, I wonder if the server knows how cool we are. Huh huh.",
+    "Huh huh. Beavis. Huh huh.",
+    "Uh, we should have a band. Huh huh. Exporting Butt-Head.",
+    "Uh, I'm gonna go tell people about this later. Huh huh."
+  ],
+
   "_sources": [
     {"text": "This sucks more than anything that has ever sucked before.", "type": "series", "work": "Beavis and Butt-Head", "year": 1993, "artist": "Mike Judge", "verified": true},
-    {"text": "Uh, close only counts in horseshoes and like... lemonade.", "type": "series", "work": "Beavis and Butt-Head", "year": 1993, "artist": "Mike Judge", "verified": true}
+    {"text": "Uh, close only counts in horseshoes and like... lemonade.", "type": "series", "work": "Beavis and Butt-Head", "year": 1993, "artist": "Mike Judge", "verified": true},
+    {"text": "Damn, we're smooth.", "type": "series", "work": "Beavis and Butt-Head", "year": 1993, "artist": "Mike Judge", "verified": true}
   ]
 }

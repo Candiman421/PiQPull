@@ -1,5 +1,6 @@
-// PiQPull — Options Page v1.2.0
+// PiQPull — Options Page v1.4.0
 // Handles: org ID override, account name aliases, server push preference.
+// v1.4.0: server push now uses chrome.storage.local['useServerPush'] (matches browse-state.js).
 
 'use strict';
 
@@ -66,13 +67,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Server push preference ────────────────────────────────────────────
 
-  chrome.storage.sync.get(['serverPush'], stored => {
-    if (serverPushEl) serverPushEl.checked = !!stored.serverPush;
+  chrome.storage.local.get(['useServerPush'], stored => {
+    if (serverPushEl) serverPushEl.checked = stored.useServerPush !== false;
   });
 
   saveServerPushBtn && saveServerPushBtn.addEventListener('click', () => {
     const val = serverPushEl ? serverPushEl.checked : false;
-    chrome.storage.sync.set({ serverPush: val }, () =>
+    chrome.storage.local.set({ useServerPush: val }, () =>
       showStatus(serverPushStatusEl, `Server push ${val ? 'enabled' : 'disabled'}.`, false));
   });
 

@@ -1,6 +1,9 @@
-// PiQPull — Popup Logic v1.2.0
-// Simplified: 3 buttons only. Format/artifact options removed (project route always raw JSON).
-// Added: Export Project Home page button.
+// PiQPull — Popup Logic v1.4.0
+// Two buttons only: Export Conversation + Browse All Conversations.
+// No project picker — conversation path derived from metadata inside content.js.
+// Project Home download moved exclusively to the Browse page.
+
+'use strict';
 
 // ---------------------------------------------------------------------------
 // Storage helpers
@@ -21,17 +24,16 @@ async function resolveOrgId() {
         });
       });
       if (relayResponse && relayResponse.success && relayResponse.orgId) {
-        // Also track org + resolve account slug on successful detection
         chrome.runtime.sendMessage({
-          action: 'fetchAccountSlug',
-          orgId: relayResponse.orgId,
-          orgName: relayResponse.orgName || null
+          action:  'fetchAccountSlug',
+          orgId:   relayResponse.orgId,
+          orgName: relayResponse.orgName || null,
         }, () => {});
         return { orgId: relayResponse.orgId, orgName: relayResponse.orgName || null };
       }
     }
   } catch (_err) { /* fall through */ }
-  const storedOrgId = await getStoredOrgId();
+  const storedOrgId  = await getStoredOrgId();
   const storedOrgName = await new Promise(resolve =>
     chrome.storage.sync.get(['orgName'], s => resolve(s.orgName || null)));
   return { orgId: storedOrgId, orgName: storedOrgName };
@@ -42,23 +44,13 @@ function getStoredAccountSlug() {
     chrome.storage.sync.get(['currentAccountSlug'], s => resolve(s.currentAccountSlug || 'unknown')));
 }
 
-function getStoredProjectSelection() {
-  return new Promise(resolve =>
-    chrome.storage.sync.get(['piQuixProjectFolder', 'piQuixProjectName'], s =>
-      resolve({ folder: s.piQuixProjectFolder || '', projectName: s.piQuixProjectName || '' })));
-}
-
-function saveProjectSelection(folder, projectName) {
-  return new Promise(resolve =>
-    chrome.storage.sync.set({ piQuixProjectFolder: folder, piQuixProjectName: projectName }, resolve));
-}
-
 // ---------------------------------------------------------------------------
 // Status display
 // ---------------------------------------------------------------------------
 
 function showStatus(message, statusType) {
   const statusEl     = document.getElementById('status');
+  if (!statusEl) return;
   const resolvedType = statusType || 'info';
   statusEl.className = `status ${resolvedType}`;
 
@@ -74,74 +66,6 @@ function showStatus(message, statusType) {
   if (resolvedType === 'success') {
     setTimeout(() => { statusEl.textContent = ''; statusEl.className = ''; }, 5000);
   }
-}
-
-// ---------------------------------------------------------------------------
-// Route note
-// ---------------------------------------------------------------------------
-
-function updateProjectRouteNote(selectedFolder, accountSlug) {
-  const noteEl = document.getElementById('projectRouteNote');
-  const pathEl = document.getElementById('projectRoutePath');
-  if (!noteEl) return;
-
-  if (selectedFolder) {
-    noteEl.classList.remove('hidden');
-    if (pathEl) pathEl.textContent = `incoming\\PiQPull\\${accountSlug || '…'}\\…\\{chat}\\`;
-    // Enable the Project Home button when project is selected
-    document.getElementById('exportProjectHome').disabled = false;
-  } else {
-    noteEl.classList.add('hidden');
-    document.getElementById('exportProjectHome').disabled = true;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Project picker
-// ---------------------------------------------------------------------------
-
-function populatePiQuixProjectPicker(piQuixProjects, storedFolder) {
-  const selectEl = document.getElementById('piQuixProjectSelect');
-
-  const sectionOrder   = [];
-  const sectionBuckets = {};
-
-  for (const proj of piQuixProjects) {
-    const section = proj.navSection || 'OTHER';
-    if (!sectionBuckets[section]) { sectionBuckets[section] = []; sectionOrder.push(section); }
-    sectionBuckets[section].push(proj);
-  }
-
-  for (const section of sectionOrder) {
-    const optGroup = document.createElement('optgroup');
-    optGroup.label = section;
-    for (const proj of sectionBuckets[section]) {
-      const optionEl               = document.createElement('option');
-      optionEl.value               = proj.folder;
-      optionEl.textContent         = proj.claudeProject;
-      optionEl.dataset.projectName = proj.claudeProject;
-      if (proj.folder === storedFolder) optionEl.selected = true;
-      optGroup.appendChild(optionEl);
-    }
-    selectEl.appendChild(optGroup);
-  }
-}
-
-async function loadPiQuixProjects() {
-  const statusEl       = document.getElementById('projectLoadStatus');
-  statusEl.textContent = 'loading…';
-
-  const backgroundResponse = await new Promise(resolve =>
-    chrome.runtime.sendMessage({ action: 'fetchPiQuixProjects' }, resolve));
-
-  if (!backgroundResponse || !backgroundResponse.success) {
-    statusEl.textContent = '(server offline)';
-    return;
-  }
-
-  statusEl.textContent = '';
-  const { folder: storedFolder } = await getStoredProjectSelection();
-  populatePiQuixProjectPicker(backgroundResponse.piQuixProjects, storedFolder);
 }
 
 // ---------------------------------------------------------------------------
@@ -163,20 +87,11 @@ function extractConversationIdFromUrl(tabUrl) {
   }
 }
 
-function getSelectedProject() {
-  const selectEl       = document.getElementById('piQuixProjectSelect');
-  const selectedOption = selectEl.selectedOptions[0];
-  return {
-    folder:      selectEl.value || '',
-    projectName: selectedOption ? (selectedOption.dataset.projectName || '') : ''
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Ensure content script is loaded before any export
 // ---------------------------------------------------------------------------
 
-async function ensureContentScript(tabId) {
+async function ensureContentScript(_tabId) {
   return new Promise(resolve =>
     chrome.runtime.sendMessage({ action: 'ensureContentScript' }, resolve));
 }
@@ -188,38 +103,21 @@ async function ensureContentScript(tabId) {
 document.addEventListener('DOMContentLoaded', async () => {
   // Version display
   const manifest = chrome.runtime.getManifest();
-  document.getElementById('header-version').textContent = `v${manifest.version}`;
+  const versionEl = document.getElementById('header-version');
+  if (versionEl) versionEl.textContent = `v${manifest.version}`;
 
   // Resolve org + account slug
   const { orgId, orgName } = await resolveOrgId();
-  if (!orgId) document.getElementById('setupNotice').hidden = false;
+  const setupNotice = document.getElementById('setupNotice');
+  if (setupNotice) setupNotice.hidden = !!orgId;
 
-  // Resolve account slug and cache it
-  let accountSlug = 'unknown';
   if (orgId) {
     const slugResult = await new Promise(resolve =>
       chrome.runtime.sendMessage({ action: 'fetchAccountSlug', orgId, orgName }, resolve));
     if (slugResult && slugResult.success) {
-      accountSlug = slugResult.accountSlug;
-      chrome.storage.sync.set({ currentAccountSlug: accountSlug });
+      chrome.storage.sync.set({ currentAccountSlug: slugResult.accountSlug });
     }
   }
-
-  // Load project picker
-  await loadPiQuixProjects();
-
-  // Restore project selection and update route note
-  const { folder: storedFolder } = await getStoredProjectSelection();
-  if (storedFolder) updateProjectRouteNote(storedFolder, accountSlug);
-
-  // Wire project picker changes
-  document.getElementById('piQuixProjectSelect').addEventListener('change', async e => {
-    const selectedOption = e.target.selectedOptions[0];
-    const folder     = e.target.value;
-    const projName   = selectedOption ? (selectedOption.dataset.projectName || '') : '';
-    await saveProjectSelection(folder, projName);
-    updateProjectRouteNote(folder, accountSlug);
-  });
 
   document.getElementById('openOptions')?.addEventListener('click', e => {
     e.preventDefault(); chrome.runtime.openOptionsPage();
@@ -228,6 +126,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // ---------------------------------------------------------------------------
 // Export Current Conversation
+// Sends message to content.js which handles fetch + push to /export/incoming.
+// Path is always derived from conversation metadata — no project selection needed here.
 // ---------------------------------------------------------------------------
 
 document.getElementById('exportCurrent').addEventListener('click', async () => {
@@ -237,20 +137,24 @@ document.getElementById('exportCurrent').addEventListener('click', async () => {
 
   try {
     const { orgId, orgName } = await resolveOrgId();
-    const activeTab = await getActiveClaudeTab();
+    const activeTab          = await getActiveClaudeTab();
 
-    if (!orgId) throw new Error('Organization ID not configured. Open Settings to fix.');
-    if (!activeTab || !activeTab.url) throw new Error('No active tab detected.');
+    if (!orgId)                throw new Error('Organization ID not configured. Open Settings to fix.');
+    if (!activeTab?.url)       throw new Error('No active tab detected.');
     if (!activeTab.url.includes('claude.ai')) throw new Error('Navigate to a Claude.ai conversation first.');
 
     const conversationId = extractConversationIdFromUrl(activeTab.url);
-    if (!conversationId) throw new Error('Could not detect conversation ID. Open a Claude.ai conversation first.');
+    if (!conversationId)  throw new Error('Could not detect conversation ID. Open a Claude.ai conversation first.');
 
-    // FIX Bug 4: ensure content script is loaded before sending
     await ensureContentScript(activeTab.id);
 
-    const selectedProject = getSelectedProject();
-    const accountSlug     = await getStoredAccountSlug();
+    const accountSlug = await getStoredAccountSlug();
+
+    // Safety: re-enable button after 30s if callback never fires
+    const safetyTimer = setTimeout(() => {
+      exportBtn.disabled = false;
+      showStatus('Request timed out. Reload and try again.', 'error');
+    }, 30000);
 
     chrome.tabs.sendMessage(activeTab.id, {
       action:        'exportToIncoming',
@@ -258,10 +162,11 @@ document.getElementById('exportCurrent').addEventListener('click', async () => {
       orgId,
       orgName,
       accountSlug,
-      projectFolder: selectedProject.folder,
-      projectName:   selectedProject.projectName,
+      projectFolder: '',   // derived from conversation metadata server-side
+      projectName:   '',
       tabUrl:        activeTab.url,
     }, serverResponse => {
+      clearTimeout(safetyTimer);
       if (chrome.runtime.lastError) {
         showStatus(`Error: ${chrome.runtime.lastError.message}`, 'error');
       } else if (serverResponse && serverResponse.success) {
@@ -278,59 +183,6 @@ document.getElementById('exportCurrent').addEventListener('click', async () => {
   } catch (err) {
     showStatus(err.message, 'error');
     exportBtn.disabled = false;
-  }
-});
-
-// ---------------------------------------------------------------------------
-// Download Project Home Page
-// ---------------------------------------------------------------------------
-
-document.getElementById('exportProjectHome').addEventListener('click', async () => {
-  const homeBtn    = document.getElementById('exportProjectHome');
-  homeBtn.disabled = true;
-  showStatus('Fetching project home…', 'info');
-
-  try {
-    const { orgId, orgName } = await resolveOrgId();
-    const activeTab = await getActiveClaudeTab();
-
-    if (!orgId)   throw new Error('Organization ID not configured.');
-    if (!activeTab || !activeTab.url) throw new Error('No active tab detected.');
-    if (!activeTab.url.includes('claude.ai')) throw new Error('Navigate to a Claude.ai conversation first.');
-
-    const conversationId = extractConversationIdFromUrl(activeTab.url);
-    if (!conversationId) throw new Error('Open a Claude.ai conversation inside a project first.');
-
-    await ensureContentScript(activeTab.id);
-
-    const selectedProject = getSelectedProject();
-    if (!selectedProject.folder) throw new Error('Select a PiQuix project first.');
-
-    const accountSlug = await getStoredAccountSlug();
-
-    chrome.tabs.sendMessage(activeTab.id, {
-      action:        'exportProjectHome',
-      conversationId,
-      orgId,
-      orgName,
-      accountSlug,
-      projectFolder: selectedProject.folder,
-      tabUrl:        activeTab.url,
-    }, serverResponse => {
-      if (chrome.runtime.lastError) {
-        showStatus(`Error: ${chrome.runtime.lastError.message}`, 'error');
-      } else if (serverResponse && serverResponse.success) {
-        const projName = serverResponse.projectName || 'project';
-        showStatus(`✅ ${projName} home saved`, 'success');
-      } else {
-        showStatus((serverResponse && serverResponse.error) || 'Project home export failed', 'error');
-      }
-      homeBtn.disabled = false;
-    });
-
-  } catch (err) {
-    showStatus(err.message, 'error');
-    homeBtn.disabled = false;
   }
 });
 

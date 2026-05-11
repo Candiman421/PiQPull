@@ -1,6 +1,7 @@
-// PiQPull — Browse: Table v1.2.0
+// PiQPull — Browse: Table v1.4.0
 // FIX Bug 1: autoSelectNewUpdated no longer calls render() internally.
 //            Caller (browse.js) calls applyFiltersAndSort first, then autoSelectNewUpdated.
+// v1.4.0: groupByProject CSS classes now styled in browse.css; _renderGrouped active.
 
 const BrowseTable = (() => {
 

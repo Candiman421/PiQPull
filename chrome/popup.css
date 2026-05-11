@@ -1,4 +1,8 @@
-/* PiQPull — Popup Styles v1.2.0 */
+/* PiQPull — Popup Styles v1.4.0
+   Two-button popup: Export Conversation + Browse All Conversations.
+   Dead rules removed: #exportProjectHome, .project-label, .route-note,
+   .option-group, .option-group-home, .project-label-hint, .route-note-detail.
+*/
 
 :root {
   --bg-color:       #1e1e1e;
@@ -8,8 +12,6 @@
   --primary-hover:  #7d66f0;
   --secondary-color: #32b34a;
   --secondary-hover: #3cc752;
-  --tertiary-color: #3a8fc4;
-  --tertiary-hover: #4aa8e0;
   --disabled-bg:    #3a3a3a;
   --success-bg:     #1a4d2e;
   --success-text:   #90ee90;
@@ -28,8 +30,6 @@
   --primary-hover:  #4a35ba;
   --secondary-color: #10b981;
   --secondary-hover: #059669;
-  --tertiary-color: #2563eb;
-  --tertiary-hover: #1d4ed8;
   --disabled-bg:    #e9ecef;
   --success-bg:     #d1fae5;
   --success-text:   #065f46;
@@ -72,14 +72,6 @@ button:disabled {
   color: #888;
 }
 
-/* Download Project Home — teal/blue */
-#exportProjectHome {
-  background: var(--tertiary-color);
-}
-#exportProjectHome:hover:not(:disabled) {
-  background: var(--tertiary-hover);
-}
-
 /* Browse — green */
 #browseConversations {
   background: var(--secondary-color);
@@ -92,22 +84,12 @@ button:disabled {
   padding: 8px;
   border-radius: 4px;
   font-size: 12px;
+  line-height: 1.4;
 }
 .success { background: var(--success-bg); color: var(--success-text); }
 .error   { background: var(--error-bg);   color: var(--error-text); }
 .info    { background: var(--info-bg);    color: var(--info-text); }
 .info a  { color: var(--link-color); }
-
-select {
-  width: 100%;
-  padding: 5px;
-  margin-top: 4px;
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  font-size: 12px;
-}
 
 #popup-header {
   margin: -8px -8px 10px -8px;
@@ -130,58 +112,3 @@ select {
 }
 
 .inner { padding: 0 4px; }
-
-.option-group { margin: 0 0 10px; }
-
-.project-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-color);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 3px;
-}
-
-.project-load-status {
-  font-size: 10px;
-  color: #607080;
-  font-weight: 400;
-}
-
-.route-note {
-  font-size: 10px;
-  color: #8b9ab0;
-  margin: 4px 0 0;
-  line-height: 1.5;
-}
-
-.route-note code {
-  font-size: 10px;
-  color: #a0b8d0;
-  background: rgba(100,140,200,0.1);
-  padding: 1px 4px;
-  border-radius: 2px;
-}
-
-.route-note-detail {
-  color: #607080;
-  font-size: 10px;
-  display: block;
-  margin-top: 1px;
-}
-
-.route-note.hidden { display: none; }
-
-.option-group-home {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255,255,255,0.07);
-}
-
-.project-label-hint {
-  font-size: 10px;
-  color: #506070;
-  font-weight: 400;
-  margin-left: 3px;
-}

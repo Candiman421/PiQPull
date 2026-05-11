@@ -1,4 +1,4 @@
-// PiQPull — Browse: API Relay v1.2.0
+// PiQPull — Browse: API Relay v1.4.0
 // Single responsibility: communicate with Claude.ai (via content script)
 // and PiQuix server (via background). No UI. No state. Returns data or throws.
 

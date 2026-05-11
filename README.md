@@ -3,19 +3,21 @@
 Chrome extension that downloads Claude.ai conversations into structured format, routed to the PiQuix system. Provider-agnostic by design — Claude.ai first.
 
 **Repo:** [Candiman421/PiQPull](https://github.com/Candiman421/PiQPull)  
-**Version:** 1.2.0  
+**Version:** 1.4.0  
 **License:** MIT
 
 ---
 
 ## What it does
 
-- Exports single conversations or bulk exports all conversations from Claude.ai
-- Routes to PiQuix local server (`localhost:7432`) with account/project folder structure
-- Extracts artifacts (`create_file` tool outputs + `<antArtifact>` tags) automatically
-- Captures image attachments from conversations
+- Two-button popup: **Export Conversation** (pushes to PiQuix server) + **Browse All Conversations**
+- Routes to PiQuix local server (`localhost:7432`) with account/Claude-project/chat folder structure
+- Extracts artifacts (`create_file` tool outputs + `<antArtifact>` tags) automatically, flat in chat folder
+- Captures image attachments from conversations (base64-decoded server-side)
 - Downloads project home page: name, description, instructions, memory, knowledge files
-- Orb export UI with animated progress sphere, character commentary, and shotgun spray
+- Bulk export with animated Orb sphere, swappable character system (Beavis/Butt-Head by default), spray-word progress commentary, cancel-to-Done state
+- State snapshot: destination picker locked during bulk runs, re-enabled on complete
+- Full documentation suite in `PiQuixRoot/PiQPull/docs/` (11 files)
 
 ---
 
@@ -182,7 +184,7 @@ Falls back to email prefix (`jcturpin8069`) if no alias is set.
 
 ---
 
-## Source credit
+- `docs/` — 11 documentation files (ARCHITECTURE.md, MODULE_REFERENCE.md, DATA_FLOW.md, CHARACTER_SYSTEM.md, PAYLOAD_SCHEMA.md, STORAGE_SCHEMA.md, SERVER_API.md, CLAUDE_API.md, CHANGELOG.md, TROUBLESHOOTING.md, module-registry.json)
 
 PiQPull was written from scratch with reference to the API surface of [agoramachinia/claude-exporter](https://github.com/agoramachinia/claude-exporter) (MIT). Code is an independent rewrite under MIT license.
 

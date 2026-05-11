@@ -1,8 +1,10 @@
-// PiQPull — Browse: Export Engine v1.2.0
-// Bug 3 fix: 429 retry exhaustion now seals result correctly.
-// New: Shotgun spray speech for B&B (words fly from mouth, never cover faces).
-// New: Session log written to account-level folder after bulk export.
-// New: accountSlug threaded through all pushToIncoming calls.
+// PiQPull — Browse: Export Engine v1.5.1
+// Fixed: say() throttled every 8th conv. setDone() before hide. Session log write.
+// Fixed: Project home downloads per unique project_uuid when includeProjectHome checked.
+// v1.5.0: pushToIncoming accepts optional overrideFolder/ProjName params; exportAll snapshots
+//         routing state at start so destination-picker changes mid-run have no effect.
+//         Picker + export button disabled during active bulk run, re-enabled in finally.
+// v1.5.1: orgName in project home section fixed to BrowseState.orgName (was bare undefined var).
 
 'use strict';
 
@@ -317,10 +319,15 @@ const BrowseExport = (() => {
    * @param {{ chat_messages?: unknown[], project_uuid?: string, name?: string, model?: string }} convData
    * @param {string} convId
    * @param {string} convUrl
+   * @param {string} [overrideFolder] - optional: use this folder instead of live BrowseState value
+   * @param {string} [overrideProjName] - optional: use this name instead of live BrowseState value
    */
-  async function pushToIncoming(convData, convId, convUrl) {
+  async function pushToIncoming(convData, convId, convUrl, overrideFolder, overrideProjName) {
     const ts = getPiQTimestamp();
     const slug = generateChatSlug((convData && convData.name) || convId);
+    // Use snapshot values when provided (bulk export), fall back to live state (single export)
+    const folder   = overrideFolder   !== undefined ? overrideFolder   : BrowseState.piQuixProjectFolder;
+    const projName = overrideProjName !== undefined ? overrideProjName : BrowseState.piQuixProjectName;
 
     let imageAssets = [];
     try {
@@ -338,7 +345,7 @@ const BrowseExport = (() => {
 
     const payload = buildExportPayload(
       convData, convId, convUrl,
-      BrowseState.piQuixProjectFolder, BrowseState.piQuixProjectName,
+      folder, projName,
       imageAssets, ts,
       BrowseState.orgId || null,
       BrowseState.orgName || null,
@@ -348,7 +355,7 @@ const BrowseExport = (() => {
     );
 
     return BrowseApi.pushToIncoming({
-      projectFolder: BrowseState.piQuixProjectFolder,
+      projectFolder: folder,
       accountSlug: BrowseState.accountSlug || 'unknown',
       chatSlug: slug,
       conversationId: convId,
@@ -487,13 +494,20 @@ const BrowseExport = (() => {
     if (exportBtn) { exportBtn.disabled = true; exportBtn.textContent = 'Running…'; }
 
     const total = subset.length;
-    const usingPush = !!BrowseState.piQuixProjectFolder;
-    const session = new PiQExportSession(total, BrowseState.piQuixProjectFolder, BrowseState.accountSlug);
+    // Snapshot routing state — user changing destination picker mid-run has no effect
+    const snapFolder   = BrowseState.piQuixProjectFolder;
+    const snapProjName = BrowseState.piQuixProjectName;
+    const usingPush = !!snapFolder;
+    const session = new PiQExportSession(total, snapFolder, BrowseState.accountSlug);
     let isCancelled = false;
 
-    OrbController.show(total, BrowseState.piQuixProjectFolder);
+    // Lock picker + export button for the duration of the run
+    const pickerEl = document.getElementById('piQuixProjectSelect');
+    if (pickerEl) pickerEl.disabled = true;
+
+    OrbController.show(total, snapFolder);
     OrbController.onCancel(() => { isCancelled = true; });
-    OrbController.say('init', [total, BrowseState.piQuixProjectFolder], []);
+    OrbController.say('init', [total, snapFolder], []);
 
     // ── PATH A: per-conversation incoming push ──────────────────────────
 
@@ -594,7 +608,7 @@ const BrowseExport = (() => {
           const convUrl = `https://claude.ai/chat/${conv.uuid}`;
 
           try {
-            const pushResult = await pushToIncoming(convData, conv.uuid, convUrl);
+            const pushResult = await pushToIncoming(convData, conv.uuid, convUrl, snapFolder, snapProjName);
 
             if (pushResult.success) {
               result.endPhase('push', true);
@@ -653,9 +667,9 @@ const BrowseExport = (() => {
                   action: 'exportProjectHome',
                   conversationId: conv.uuid,
                   orgId,
-                  orgName,
+                  orgName: BrowseState.orgName,
                   accountSlug: BrowseState.accountSlug,
-                  projectFolder: BrowseState.piQuixProjectFolder,
+                  projectFolder: snapFolder,
                   tabUrl: activeTab ? activeTab.url : '',
                 }, resolve)
               );
@@ -684,8 +698,8 @@ const BrowseExport = (() => {
         } else {
           OrbController.say('done', [session.successCount, total], [session.successCount, total]);
           const msg = session.failedCount > 0
-            ? `✅${session.successCount} ⚡${session.partialCount} ❌${session.failedCount} of ${total} → ${BrowseState.piQuixProjectFolder}`
-            : `All ${session.successCount} pushed to ${BrowseState.piQuixProjectFolder} 🎉`;
+            ? `✅${session.successCount} ⚡${session.partialCount} ❌${session.failedCount} of ${total} → ${snapFolder}`
+            : `All ${session.successCount} pushed to ${snapFolder} 🎉`;
           showToast(msg, session.failedCount > 0);
           OrbController.announce(session.failedCount === 0 ? `All ${session.successCount} complete ✓` : `${session.successCount} ok · ${session.failedCount} failed`, session.failedCount > 0 ? 'error' : 'status');
 
@@ -702,6 +716,7 @@ const BrowseExport = (() => {
         OrbController.setDone();
         setTimeout(() => OrbController.hide(), 5000);
         if (exportBtn) { exportBtn.disabled = false; exportBtn.textContent = origLabel; }
+        if (pickerEl) pickerEl.disabled = false;
       }
       return;
     }
@@ -801,6 +816,7 @@ const BrowseExport = (() => {
     } finally {
       setTimeout(() => OrbController.hide(), 3000);
       if (exportBtn) { exportBtn.disabled = false; exportBtn.textContent = origLabel; }
+      if (pickerEl) pickerEl.disabled = false; // re-enable picker (disabled before PATH A/B split)
     }
   }
 

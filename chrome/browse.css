@@ -1186,6 +1186,142 @@ td { padding: 14px 15px; font-size: 14px; }
   z-index: 4000;
 }
 
+/* ================================================================
+   PiQPull browse.css APPEND — v1.4.0
+   Critical missing rules: .hidden, mode badge, group controls,
+   piquixModeInfo row, done-state, dev-btn.
+   ================================================================ */
+
+/* Global hidden utility — required for mode toggle and piquixModeInfo */
+.hidden { display: none !important; }
+
+/* ---- Destination mode badge ---- */
+.export-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
+}
+.export-mode-badge.mode-local {
+  background: rgba(80,80,100,0.25);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.export-mode-badge.mode-piquix {
+  background: rgba(34,197,94,0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34,197,94,0.3);
+}
+
+/* ---- PiQuix mode info row ---- */
+.piquix-mode-info {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+.piquix-mode-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex: 1;
+}
+.piquix-mode-desc code {
+  font-family: monospace;
+  font-size: 11px;
+  color: #60a0d0;
+  background: rgba(80,140,200,0.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.piquix-option-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* ---- Group by project button ---- */
+.group-btn {
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--input-border);
+  border-radius: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  width: auto;
+}
+.group-btn:hover        { background: var(--secondary-bg); color: var(--primary); border-color: var(--primary); }
+.group-btn.active       { background: rgba(107,82,232,0.12); color: var(--primary); border-color: var(--primary); font-weight: 600; }
+
+/* ---- Dev mode button ---- */
+.dev-btn {
+  padding: 6px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  width: auto;
+}
+.dev-btn:hover  { color: var(--text-secondary); border-color: var(--input-border); }
+.dev-btn.active { color: #ffc040; border-color: #ffc040; background: rgba(255,192,64,0.08); }
+
+/* ---- Orb Cancel → Done state ---- */
+.piq-orb-cancel.done-state {
+  background: rgba(20, 80, 40, 0.8);
+  border-color: rgba(60, 180, 80, 0.6);
+  color: #80e090;
+}
+.piq-orb-cancel.done-state:hover {
+  background: rgba(30, 110, 50, 0.9);
+  border-color: rgba(80, 200, 100, 0.8);
+}
+
+/* ---- Export button group ---- */
+.export-btn-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ---- Grouped table ---- */
+.conv-group { margin-bottom: 4px; }
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--secondary-bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.group-label  { font-size: 13px; font-weight: 600; color: var(--text-primary); flex: 1; }
+.group-count  { font-size: 11px; color: var(--text-muted); background: var(--border); padding: 1px 6px; border-radius: 9px; }
+.group-toggle { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 13px; width: auto; padding: 2px 6px; }
+.group-toggle:hover { color: var(--text-primary); }
+.group-select-all { cursor: pointer; width: 15px; height: 15px; flex-shrink: 0; }
+
 /* ── Done state — Cancel button turns green when export finishes ── */
 .piq-orb-cancel.done-state {
   background: rgba(20, 80, 40, 0.85);

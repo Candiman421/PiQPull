@@ -1,6 +1,6 @@
-// PiQPull — Browse: State v1.4.0
-// Removed: piQuixProjectFolder/Name routing state (server push is always-on, no mode toggle).
-// Removed: loadServerPush, loadPiQuixProjectSelection, savePiQuixProjectSelection.
+// PiQPull — Browse: State v1.4.1
+// Restored: piQuixProjectFolder/Name + loadPiQuixProjectSelection/save + loadServerPush.
+//   browse.js and browse-export.js require these for the Destination picker and push routing.
 // Retained: groupByProject, includeProjectHome, all timestamp/prefs/account state.
 
 'use strict';
@@ -20,6 +20,9 @@ const BrowseState = (() => {
   let statusFilter = 'all';
   let dateFormat = 'mdy';
   let timeFormat = '12h';
+  let piQuixProjectFolder = '';
+  let piQuixProjectName   = '';
+  let useServerPush       = true;
   let groupByProject = false;
   let includeProjectHome = false;
 
@@ -50,6 +53,13 @@ const BrowseState = (() => {
     set dateFormat(v) { dateFormat = v; },
     get timeFormat() { return timeFormat; },
     set timeFormat(v) { timeFormat = v; },
+    get piQuixProjectFolder() { return piQuixProjectFolder; },
+    set piQuixProjectFolder(v) { piQuixProjectFolder = v || ''; },
+    get piQuixProjectName() { return piQuixProjectName; },
+    set piQuixProjectName(v) { piQuixProjectName = v || ''; },
+    get useServerPush() { return useServerPush; },
+    set useServerPush(v) { useServerPush = !!v; },
+
     get groupByProject() { return groupByProject; },
     set groupByProject(v) { groupByProject = !!v; },
     get includeProjectHome() { return includeProjectHome; },
@@ -123,6 +133,38 @@ const BrowseState = (() => {
       accountSlug = slug;
       return new Promise(resolve =>
         chrome.storage.sync.set({ currentAccountSlug: slug }, resolve));
+    },
+
+    async loadPiQuixProjectSelection() {
+      return new Promise(resolve => {
+        chrome.storage.sync.get(['piQuixProjectFolder', 'piQuixProjectName'], stored => {
+          piQuixProjectFolder = stored.piQuixProjectFolder || '';
+          piQuixProjectName   = stored.piQuixProjectName   || '';
+          resolve({ folder: piQuixProjectFolder, projectName: piQuixProjectName });
+        });
+      });
+    },
+
+    async savePiQuixProjectSelection(folder, name) {
+      piQuixProjectFolder = folder || '';
+      piQuixProjectName   = name   || '';
+      return new Promise(resolve =>
+        chrome.storage.sync.set({ piQuixProjectFolder, piQuixProjectName }, resolve));
+    },
+
+    async loadServerPush() {
+      return new Promise(resolve => {
+        chrome.storage.local.get(['useServerPush'], stored => {
+          useServerPush = stored.useServerPush !== false; // default true
+          resolve(useServerPush);
+        });
+      });
+    },
+
+    async saveServerPush(val) {
+      useServerPush = !!val;
+      return new Promise(resolve =>
+        chrome.storage.local.set({ useServerPush }, resolve));
     },
 
     async loadGroupPrefs() {
