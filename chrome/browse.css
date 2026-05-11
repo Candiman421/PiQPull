@@ -1098,6 +1098,7 @@ td { padding: 14px 15px; font-size: 14px; }
   flex-direction: column;
   overflow: hidden;
   -webkit-backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 .piq-error-panel.hidden { display: none; }
@@ -1345,6 +1346,7 @@ td { padding: 14px 15px; font-size: 14px; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 .piq-error-panel.hidden { display: none; }

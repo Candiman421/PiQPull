@@ -18,23 +18,25 @@
       <a href="#" id="openOptions">Set it up in Settings</a>
     </div>
 
-    <!-- PiQuix project routing -->
-    <div class="option-group">
+    <button id="exportCurrent">Export Conversation</button>
+
+    <!-- Project home download — project selection required -->
+    <div class="option-group option-group-home">
       <label class="project-label" for="piQuixProjectSelect">
-        Route to PiQuix
+        PiQuix project
+        <span class="project-label-hint">(for home download)</span>
         <span id="projectLoadStatus" class="project-load-status"></span>
       </label>
       <select id="piQuixProjectSelect">
-        <option value="">— none / download to Chrome only —</option>
+        <option value="">— select project —</option>
       </select>
       <div id="projectRouteNote" class="route-note hidden">
         <code id="projectRoutePath">incoming\PiQPull\…\{chat}\</code>
-        <span class="route-note-detail">· chat JSON + artifacts auto-captured</span>
+        <span class="route-note-detail">· conversations always route here automatically</span>
       </div>
     </div>
+    <button id="exportProjectHome" disabled>Download Project Home</button>
 
-    <button id="exportCurrent">Export Conversation</button>
-    <button id="exportProjectHome" id="exportProjectHome" disabled>Download Project Home</button>
     <button id="browseConversations">Browse All Conversations</button>
 
     <div id="status"></div>

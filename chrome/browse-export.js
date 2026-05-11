@@ -16,19 +16,19 @@ class PiQExportResult {
    * @param {string} conversationName
    */
   constructor(conversationId, conversationName) {
-    this.uuid        = conversationId || '';
-    this.name        = conversationName || 'Untitled';
-    this.slug        = null;
-    this.status      = 'pending';
+    this.uuid = conversationId || '';
+    this.name = conversationName || 'Untitled';
+    this.slug = null;
+    this.status = 'pending';
     /** @type {Object.<string, { ok: boolean|null, startMs: number, ms: number|null, error: string|null }>} */
-    this.phases      = {};
-    this.meta        = { msgCount: 0, thinkingCount: 0, artifactCount: 0, imageCount: 0, model: null, outputFilename: null };
-    this.retries     = 0;
-    this.startedAt   = null;
+    this.phases = {};
+    this.meta = { msgCount: 0, thinkingCount: 0, artifactCount: 0, imageCount: 0, model: null, outputFilename: null };
+    this.retries = 0;
+    this.startedAt = null;
     this.completedAt = null;
-    this.durationMs  = null;
-    this.outputPath  = null;
-    this.notes       = /** @type {string[]} */ ([]);
+    this.durationMs = null;
+    this.outputPath = null;
+    this.notes = /** @type {string[]} */ ([]);
   }
 
   /** @param {string} name */
@@ -42,8 +42,8 @@ class PiQExportResult {
   endPhase(name, ok, err) {
     const ph = this.phases[name];
     if (!ph) { this.phases[name] = { ok: !!ok, startMs: Date.now(), ms: 0, error: err || null }; return this; }
-    ph.ok    = !!ok;
-    ph.ms    = Date.now() - ph.startMs;
+    ph.ok = !!ok;
+    ph.ms = Date.now() - ph.startMs;
     ph.error = err || null;
     return this;
   }
@@ -51,14 +51,14 @@ class PiQExportResult {
   /** @param {string|null} outputPath */
   seal(outputPath) {
     this.completedAt = Date.now();
-    this.durationMs  = this.startedAt ? this.completedAt - this.startedAt : 0;
-    this.outputPath  = outputPath || null;
+    this.durationMs = this.startedAt ? this.completedAt - this.startedAt : 0;
+    this.outputPath = outputPath || null;
     const phaseValues = Object.values(this.phases);
     if (phaseValues.length === 0) {
       this.status = 'skipped';
     } else {
       const anyFailed = phaseValues.some(p => p.ok === false);
-      const allOk     = phaseValues.every(p => p.ok === true);
+      const allOk = phaseValues.every(p => p.ok === true);
       this.status = allOk ? 'success' : (anyFailed ? 'failed' : 'partial');
     }
     return this;
@@ -84,37 +84,37 @@ class PiQExportSession {
    * @param {string|null} accountSlug
    */
   constructor(totalCount, projectFolder, accountSlug) {
-    this.sessionId     = typeof getPiQTimestamp === 'function' ? getPiQTimestamp() : String(Date.now());
+    this.sessionId = typeof getPiQTimestamp === 'function' ? getPiQTimestamp() : String(Date.now());
     this.projectFolder = projectFolder || null;
-    this.accountSlug   = accountSlug   || 'unknown';
-    this.totalCount    = totalCount;
-    this.results       = /** @type {PiQExportResult[]} */ ([]);
-    this.startedAt     = Date.now();
-    this.completedAt   = null;
-    this.durationMs    = null;
-    this.cancelled     = false;
+    this.accountSlug = accountSlug || 'unknown';
+    this.totalCount = totalCount;
+    this.results = /** @type {PiQExportResult[]} */ ([]);
+    this.startedAt = Date.now();
+    this.completedAt = null;
+    this.durationMs = null;
+    this.cancelled = false;
   }
 
   /** @param {PiQExportResult} result */
   addResult(result) { this.results.push(result); return this; }
 
-  get successCount()   { return this.results.filter(r => r.status === 'success').length; }
-  get failedCount()    { return this.results.filter(r => r.status === 'failed').length; }
-  get partialCount()   { return this.results.filter(r => r.status === 'partial').length; }
-  get skippedCount()   { return this.results.filter(r => r.status === 'skipped').length; }
+  get successCount() { return this.results.filter(r => r.status === 'success').length; }
+  get failedCount() { return this.results.filter(r => r.status === 'failed').length; }
+  get partialCount() { return this.results.filter(r => r.status === 'partial').length; }
+  get skippedCount() { return this.results.filter(r => r.status === 'skipped').length; }
   get processedCount() { return this.results.filter(r => r.status !== 'pending').length; }
 
   /** @param {boolean} wasCancelled */
   seal(wasCancelled) {
     this.completedAt = Date.now();
-    this.durationMs  = this.completedAt - this.startedAt;
-    this.cancelled   = !!wasCancelled;
+    this.durationMs = this.completedAt - this.startedAt;
+    this.cancelled = !!wasCancelled;
     return this;
   }
 
   toLogText() {
     const mins = Math.floor((this.durationMs || 0) / 60000);
-    const secs  = Math.floor(((this.durationMs || 0) % 60000) / 1000);
+    const secs = Math.floor(((this.durationMs || 0) % 60000) / 1000);
     const lines = [
       `PiQPull Export Session — ${this.sessionId}`,
       `Account  : ${this.accountSlug}`,
@@ -130,8 +130,8 @@ class PiQExportSession {
       '--- Results ---',
     ];
     for (const r of this.results) {
-      const icon  = r.status === 'success' ? 'OK  ' : r.status === 'failed' ? 'FAIL' : r.status === 'partial' ? 'PART' : 'SKIP';
-      const ph    = Object.entries(r.phases).map(([k, v]) => `${k[0].toUpperCase()}:${v.ok ? 'ok' : 'ERR'}(${v.ms || 0}ms)`).join(' ');
+      const icon = r.status === 'success' ? 'OK  ' : r.status === 'failed' ? 'FAIL' : r.status === 'partial' ? 'PART' : 'SKIP';
+      const ph = Object.entries(r.phases).map(([k, v]) => `${k[0].toUpperCase()}:${v.ok ? 'ok' : 'ERR'}(${v.ms || 0}ms)`).join(' ');
       const notes = r.notes.length > 0 ? ` | ${r.notes.join('; ')}` : '';
       lines.push(`[${icon}] ${r.name.substring(0, 60)} | ${ph} | ${r.durationMs || 0}ms${notes}`);
     }
@@ -140,7 +140,7 @@ class PiQExportSession {
 
   toConsoleSummary() {
     const mins = Math.floor((this.durationMs || 0) / 60000);
-    const secs  = Math.floor(((this.durationMs || 0) % 60000) / 1000);
+    const secs = Math.floor(((this.durationMs || 0) % 60000) / 1000);
     return [
       `── PiQExportSession ${this.sessionId} ──`,
       `Account  : ${this.accountSlug}`,
@@ -175,14 +175,14 @@ const BrowseExport = (() => {
   /** @param {string} model @returns {string} */
   function shortModel(model) {
     if (!model) return '?';
-    if (model.includes('sonnet-4-6'))  return 'S4.6';
-    if (model.includes('sonnet-4-5'))  return 'S4.5';
+    if (model.includes('sonnet-4-6')) return 'S4.6';
+    if (model.includes('sonnet-4-5')) return 'S4.5';
     if (model.includes('sonnet-4-20')) return 'S4';
-    if (model.includes('3-7-sonnet'))  return 'S3.7';
-    if (model.includes('3-5-sonnet'))  return 'S3.5';
-    if (model.includes('3-sonnet'))    return 'S3';
-    if (model.includes('haiku'))       return 'Haiku';
-    if (model.includes('opus'))        return 'Opus';
+    if (model.includes('3-7-sonnet')) return 'S3.7';
+    if (model.includes('3-5-sonnet')) return 'S3.5';
+    if (model.includes('3-sonnet')) return 'S3';
+    if (model.includes('haiku')) return 'Haiku';
+    if (model.includes('opus')) return 'Opus';
     return model.split('-').slice(0, 2).join('-');
   }
 
@@ -218,25 +218,25 @@ const BrowseExport = (() => {
   /** @param {PiQExportResult} result @param {{ chat_messages?: unknown[], model?: string }} convData */
   function fillResultMeta(result, convData) {
     const msgs = Array.isArray(convData && convData.chat_messages) ? convData.chat_messages : [];
-    result.meta.msgCount      = msgs.length;
+    result.meta.msgCount = msgs.length;
     result.meta.thinkingCount = countBlock(msgs, 'thinking');
     result.meta.artifactCount = countArtifactBlocks(msgs);
-    result.meta.model         = (convData && convData.model) || null;
+    result.meta.model = (convData && convData.model) || null;
   }
 
   function gatherOpts() {
     const gb = /** @param {string} id */ (id) => { const e = document.getElementById(id); return e ? /** @type {HTMLInputElement} */ (e).checked : false; };
     const gv = /** @param {string} id */ (id) => { const e = document.getElementById(id); return e ? /** @type {HTMLSelectElement} */ (e).value : ''; };
     return {
-      format:           gv('exportFormat'),
-      includeChats:     gb('includeChats'),
-      includeThinking:  gb('includeThinking'),
-      includeMetadata:  gb('includeMetadata'),
+      format: gv('exportFormat'),
+      includeChats: gb('includeChats'),
+      includeThinking: gb('includeThinking'),
+      includeMetadata: gb('includeMetadata'),
       includeArtifacts: gb('includeArtifacts'),
       extractArtifacts: gb('extractArtifacts'),
       flattenArtifacts: gb('flattenArtifacts'),
-      artifactFormat:   gv('artifactFormat'),
-      serverPush:       gb('serverPush'),
+      artifactFormat: gv('artifactFormat'),
+      serverPush: gb('serverPush'),
     };
   }
 
@@ -278,7 +278,7 @@ const BrowseExport = (() => {
    */
   function addToZip(convData, opts, convId, zip, folderName) {
     const safeFolder = (folderName || 'export').replace(/[<>:"/\\|?*]/g, '_');
-    const artFiles   = (opts.extractArtifacts || opts.flattenArtifacts)
+    const artFiles = (opts.extractArtifacts || opts.flattenArtifacts)
       ? extractArtifactFiles(convData, opts.artifactFormat || 'original') : [];
     const { content, filename } = buildContent(convData, opts, convId);
 
@@ -319,19 +319,19 @@ const BrowseExport = (() => {
    * @param {string} convUrl
    */
   async function pushToIncoming(convData, convId, convUrl) {
-    const ts    = getPiQTimestamp();
-    const slug  = generateChatSlug((convData && convData.name) || convId);
+    const ts = getPiQTimestamp();
+    const slug = generateChatSlug((convData && convData.name) || convId);
 
     let imageAssets = [];
     try {
       imageAssets = await collectImageAssets(convData, ts);
     } catch (_e) { /* non-fatal */ }
 
-    const projectUuid  = (convData && convData.project_uuid) || null;
-    const projectName  = projectUuid && BrowseState.pMap[projectUuid]
+    const projectUuid = (convData && convData.project_uuid) || null;
+    const projectName = projectUuid && BrowseState.pMap[projectUuid]
       ? BrowseState.pMap[projectUuid] : null;
 
-    const artFiles   = collectArtifactsForTransport(convData);
+    const artFiles = collectArtifactsForTransport(convData);
     const artManifest = artFiles.map(f => ({
       filename: f.filename, size_chars: typeof f.content === 'string' ? f.content.length : 0,
     }));
@@ -340,7 +340,7 @@ const BrowseExport = (() => {
       convData, convId, convUrl,
       BrowseState.piQuixProjectFolder, BrowseState.piQuixProjectName,
       imageAssets, ts,
-      BrowseState.orgId   || null,
+      BrowseState.orgId || null,
       BrowseState.orgName || null,
       projectName, projectUuid,
       artManifest,
@@ -349,14 +349,14 @@ const BrowseExport = (() => {
 
     return BrowseApi.pushToIncoming({
       projectFolder: BrowseState.piQuixProjectFolder,
-      accountSlug:   BrowseState.accountSlug || 'unknown',
-      chatSlug:      slug,
+      accountSlug: BrowseState.accountSlug || 'unknown',
+      chatSlug: slug,
       conversationId: convId,
-      exportPayload:  payload,
-      imageAssets:    imageAssets.map(a => ({
+      exportPayload: payload,
+      imageAssets: imageAssets.map(a => ({
         asset_filename: a.asset_filename,
-        data_base64:    a.data_base64,
-        mime_type:      a.mime_type,
+        data_base64: a.data_base64,
+        mime_type: a.mime_type,
       })),
       artifactFiles: artFiles.map(f => ({ filename: f.filename, content: f.content || '' })),
     });
@@ -368,10 +368,10 @@ const BrowseExport = (() => {
   async function writeSessionLog(session) {
     try {
       await BrowseApi.pushSessionLog({
-        accountSlug:   session.accountSlug,
+        accountSlug: session.accountSlug,
         projectFolder: session.projectFolder || '_no-project',
-        timestamp:     session.sessionId,
-        logContent:    session.toLogText(),
+        timestamp: session.sessionId,
+        logContent: session.toLogText(),
       });
       OrbController.say('log', [], []);
     } catch (_e) {
@@ -388,7 +388,7 @@ const BrowseExport = (() => {
    * @param {string} convName
    */
   async function exportSingle(orgId, convId, convName) {
-    const opts    = gatherOpts();
+    const opts = gatherOpts();
     const convUrl = `https://claude.ai/chat/${convId}`;
     showToast(`Fetching: ${convName}…`);
 
@@ -403,14 +403,14 @@ const BrowseExport = (() => {
       if (!convData || !Array.isArray(convData.chat_messages)) throw new Error('Invalid conversation response');
       convData.model = inferModel(convData);
 
-      const msgs     = (Array.isArray(convData.chat_messages) ? convData.chat_messages : []).length;
-      const model    = shortModel(convData.model);
+      const msgs = (Array.isArray(convData.chat_messages) ? convData.chat_messages : []).length;
+      const model = shortModel(convData.model);
       const thinking = countBlock(Array.isArray(convData.chat_messages) ? convData.chat_messages : [], 'thinking');
-      const arts     = countArtifactBlocks(Array.isArray(convData.chat_messages) ? convData.chat_messages : []);
-      const metaStr  = [
+      const arts = countArtifactBlocks(Array.isArray(convData.chat_messages) ? convData.chat_messages : []);
+      const metaStr = [
         `${msgs}msgs`, model,
         thinking > 0 ? `🧠${thinking}` : null,
-        arts     > 0 ? `🎨${arts}`     : null,
+        arts > 0 ? `🎨${arts}` : null,
       ].filter(Boolean).join(' · ');
 
       if (BrowseState.piQuixProjectFolder) {
@@ -430,8 +430,8 @@ const BrowseExport = (() => {
           const zip = new JSZip();
           addToZip(convData, opts, convId, zip, convName);
           const blob = await zip.generateAsync({ type: 'blob' });
-          const url  = URL.createObjectURL(blob);
-          const a    = document.createElement('a');
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
           a.href = url; a.download = `${(convName || 'export').replace(/[<>:"/\\|?*]/g, '_')}.zip`;
           document.body.appendChild(a); a.click(); document.body.removeChild(a);
           URL.revokeObjectURL(url);
@@ -442,7 +442,7 @@ const BrowseExport = (() => {
         }
 
         if (opts.serverPush) {
-          const ts   = getPiQTimestamp();
+          const ts = getPiQTimestamp();
           const safe = (convName || convId).replace(/[<>:"/\\|?*]/g, '_');
           BrowseApi.pushToServer(`piqpull-claude-${safe}-${ts}.jsonl`, convertToJSONL(convData, convId))
             .catch(e => console.warn('PiQPull: server push failed:', e));
@@ -482,14 +482,14 @@ const BrowseExport = (() => {
       return;
     }
 
-    const exportBtn  = document.getElementById('exportAllBtn');
-    const origLabel  = exportBtn ? exportBtn.textContent : 'Export All';
+    const exportBtn = document.getElementById('exportAllBtn');
+    const origLabel = exportBtn ? exportBtn.textContent : 'Export All';
     if (exportBtn) { exportBtn.disabled = true; exportBtn.textContent = 'Running…'; }
 
-    const total      = subset.length;
-    const usingPush  = !!BrowseState.piQuixProjectFolder;
-    const session    = new PiQExportSession(total, BrowseState.piQuixProjectFolder, BrowseState.accountSlug);
-    let   isCancelled = false;
+    const total = subset.length;
+    const usingPush = !!BrowseState.piQuixProjectFolder;
+    const session = new PiQExportSession(total, BrowseState.piQuixProjectFolder, BrowseState.accountSlug);
+    let isCancelled = false;
 
     OrbController.show(total, BrowseState.piQuixProjectFolder);
     OrbController.onCancel(() => { isCancelled = true; });
@@ -502,7 +502,7 @@ const BrowseExport = (() => {
         for (let idx = 0; idx < total; idx++) {
           if (isCancelled) break;
 
-          const conv   = subset[idx];
+          const conv = subset[idx];
           const result = new PiQExportResult(conv.uuid, conv.name || 'Untitled');
           session.addResult(result);
 
@@ -535,7 +535,7 @@ const BrowseExport = (() => {
               const data = await res.json();
               if (!data || !Array.isArray(data.chat_messages)) throw new Error('Invalid response');
               data.model = inferModel(data);
-              convData   = data;
+              convData = data;
 
             } catch (fetchErr) {
               if (attempts >= MAX_ATTEMPTS) {
@@ -558,7 +558,7 @@ const BrowseExport = (() => {
             result.seal(null);
             OrbController.logResult(result);
             OrbController.announce(`❌ ${session.failedCount} failed — rate limited`, 'error');
-        OrbController.setMeta(`❌ ${session.failedCount} failed so far`);
+            OrbController.setMeta(`❌ ${session.failedCount} failed so far`);
             await new Promise(r => setTimeout(r, 100));
             continue;
           }
@@ -567,21 +567,21 @@ const BrowseExport = (() => {
           fillResultMeta(result, convData);
           result.slug = generateChatSlug((convData.name) || conv.uuid);
 
-          const model    = shortModel(convData.model);
-          const msgs     = result.meta.msgCount;
+          const model = shortModel(convData.model);
+          const msgs = result.meta.msgCount;
           const thinking = result.meta.thinkingCount;
-          const arts     = result.meta.artifactCount;
+          const arts = result.meta.artifactCount;
 
           OrbController.setMeta(
             `${msgs}msgs · ${model}` +
             (thinking > 0 ? ` · 🧠${thinking}` : '') +
-            (arts     > 0 ? ` · 🎨${arts}`     : '') +
+            (arts > 0 ? ` · 🎨${arts}` : '') +
             ` | ✅${session.successCount} ❌${session.failedCount}`
           );
 
           if (thinking > 30) OrbController.say('hasThink', [thinking], [thinking]);
           else if (arts > 5) OrbController.say('hasArts', [arts], []);
-          else               OrbController.say('pushing', [conv.name, msgs, model], []);
+          else OrbController.say('pushing', [conv.name, msgs, model], []);
 
           // Phase: push
           result.beginPhase('push');
@@ -624,6 +624,49 @@ const BrowseExport = (() => {
         session.seal(isCancelled);
         console.log(session.toConsoleSummary());
 
+        // Download project homes once per unique project if checkbox checked
+        if (!isCancelled && BrowseState.includeProjectHome) {
+          const seenProjectIds = new Set();
+          const exportSubset = BrowseState.selected.size > 0
+            ? BrowseState.filtered.filter(c => BrowseState.selected.has(c.uuid))
+            : BrowseState.filtered;
+
+          const projectConvs = [];
+          for (const conv of exportSubset) {
+            if (conv.project_uuid && !seenProjectIds.has(conv.project_uuid)) {
+              seenProjectIds.add(conv.project_uuid);
+              projectConvs.push(conv);
+            }
+          }
+
+          for (const conv of projectConvs) {
+            try {
+              const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+              const resp = await new Promise(resolve =>
+                chrome.tabs.sendMessage(activeTab.id, {
+                  action: 'exportProjectHome',
+                  conversationId: conv.uuid,
+                  orgId,
+                  orgName,
+                  accountSlug: BrowseState.accountSlug,
+                  projectFolder: BrowseState.piQuixProjectFolder,
+                  tabUrl: activeTab ? activeTab.url : '',
+                }, resolve)
+              );
+              const projName = (resp && resp.projectName) || conv.project_uuid || 'unknown';
+              if (resp && resp.success) {
+                OrbController.announce(`Project home: ${projName}`, 'status');
+              } else {
+                OrbController.announce(`Project home failed: ${projName}`, 'error');
+                OrbController.addError(`Project home failed: ${(resp && resp.error) || 'unknown'}`);
+              }
+            } catch (projErr) {
+              OrbController.announce(`Project home error: ${projErr.message}`, 'error');
+              OrbController.addError(`Project home threw: ${projErr.message}`);
+            }
+          }
+        }
+
         // Write session log (non-blocking)
         if (session.projectFolder) {
           await writeSessionLog(session);
@@ -658,8 +701,8 @@ const BrowseExport = (() => {
 
     // ── PATH B: ZIP download ──────────────────────────────────────────────
 
-    const zip          = new JSZip();
-    const jsonlLines   = /** @type {string[]} */ ([]);
+    const zip = new JSZip();
+    const jsonlLines = /** @type {string[]} */ ([]);
 
     try {
       const BATCH = 3;
@@ -717,11 +760,11 @@ const BrowseExport = (() => {
       session.seal(isCancelled);
       console.log(session.toConsoleSummary());
 
-      const ts     = getPiQTimestamp();
+      const ts = getPiQTimestamp();
       const prefix = opts.flattenArtifacts && !opts.extractArtifacts && !opts.includeChats
         ? 'piqpull-artifacts' : 'piqpull-exports';
-      const blob   = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
-      const url    = URL.createObjectURL(blob);
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+      const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url; anchor.download = `${prefix}-${ts}.zip`;
       document.body.appendChild(anchor); anchor.click(); document.body.removeChild(anchor);

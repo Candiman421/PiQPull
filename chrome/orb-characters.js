@@ -1,9 +1,9 @@
-// PiQPull — Orb Character System v1.3.0
-// Spray directions match face orientation:
-//   Butt-Head (left/top, faces right) → words fly RIGHT + UP-RIGHT, growing (perspective toward viewer)
-//   Beavis (right/bottom, faces left) → words fly LEFT across his face
-//   System announce → straight up from center
-// Error panel: static red list top-left, copyable.
+// PiQPull — Orb Character System v1.5.0
+// Spray geometry (calibration grid = 10% per square, SVG 500×500):
+//   Butt-Head — origin top-center-2down (50%,22%) = SVG(250,108) → up 270° ±60° fan, perspective grow
+//   Beavis    — origin bottom-2up-3left (20%,80%) = SVG(100,400) → SW 135° ±40° cone (screen Y↓)
+//   System    — straight up 270° from center (50%,42%)
+// Error panel: persistent entire export session — no dismiss button, copy only.
 // Tangents: each character has random off-topic phrases mixed with status phrases.
 // Dev mode: calibration grid overlaid on sphere for screenshot-based position tuning.
 
@@ -13,56 +13,55 @@
 // CONSTANTS
 // ============================================================================
 
-const LINE_SOFT_MAX   = 44;
-const LINE_HARD_MAX   = 52;
+const LINE_SOFT_MAX = 44;
+const LINE_HARD_MAX = 52;
 
 const ANNOUNCE_COLORS = {
   status: '#40ff90',
-  error:  '#ff5040',
-  warn:   '#ffc040',
+  error: '#ff5040',
+  warn: '#ffc040',
 };
 
-const SPEED_KEY  = 'orbSpeed';
-const COLOR_KEY  = 'orbColorMode';
-const PAIR_KEY   = 'orbCharacterPair';
-const SPEED_DEFAULT  = 1.0;
-const COLOR_DEFAULT  = 'psychedelic';
-const PAIR_DEFAULT   = { left: 'butthead', right: 'beavis' };
+const SPEED_KEY = 'orbSpeed';
+const COLOR_KEY = 'orbColorMode';
+const PAIR_KEY = 'orbCharacterPair';
+const SPEED_DEFAULT = 1.0;
+const COLOR_DEFAULT = 'psychedelic';
+const PAIR_DEFAULT = { left: 'butthead', right: 'beavis' };
 
-// Spray geometry: mouth positions as % of rendered sphere size
-// Left slot (Butt-Head): mouth at SVG ~(125,230)/500 = 25%, 46%
-//   → words fly RIGHT + slight up: angle center 335° (up-right), spread 50°
-//   → perspective: font grows 9→20px (coming toward viewer)
-// Right slot (Beavis): mouth at SVG ~(375,435)/500 = 75%, 87%
-//   → words fly LEFT: angle center 172°, spread 55°
-//   → normal font 11-14px
-// Center (system): at 50%, 42% of sphere
-//   → words fly UP: angle 270°, spread 70°
+// Spray geometry — spread is exact ±(spread/2)° range from angleCenter
+// Screen coords: origin top-left, Y increases downward
+//   sin(270°)=-1 → UP  sin(90°)=+1 → DOWN  sin(135°)=+0.707 → DOWN+LEFT = SW ✓
+// Left slot (Butt-Head): origin top-center-2down (50%,22%) = SVG(250,108)
+//   → axis 270° (up), spread ±60° fan = 210°–330°, perspective font 9→22px
+// Right slot (Beavis): origin bottom-2up-3left (20%,80%) = SVG(100,400)
+//   → axis 135° (SW in screen coords = down+left), spread ±40° = 95°–175°
+// Center (system): (50%,42%) → axis 270° up, spread ±35°
 
 const SLOT_CONFIG = {
   left: {
-    originPct:    { x: 0.25, y: 0.46 },   // Butt-Head mouth
-    angleCenter:  335,                      // up + right (330-340° range)
-    spread:       50,
-    perspective:  true,                     // font grows as it travels
-    fontStart:    9,
-    fontEnd:      20,
+    originPct:   { x: 0.50, y: 0.22 },  // top-center 2 squares down = SVG(250,108)
+    angleCenter: 270,                     // straight up
+    spread:      120,                     // ±60° fan — 3D vertical cone
+    perspective: true,                    // font 9→22px = coming toward viewer
+    fontStart:   9,
+    fontEnd:     22,
   },
   right: {
-    originPct:    { x: 0.75, y: 0.87 },   // Beavis mouth
-    angleCenter:  172,                      // leftward, slight down
-    spread:       55,
-    perspective:  false,
-    fontStart:    11,
-    fontEnd:      14,
+    originPct:   { x: 0.20, y: 0.80 },  // bottom-2up-3left = SVG(100,400)
+    angleCenter: 135,                     // SW in screen coords (Y↓): down+left ✓
+    spread:      80,                      // ±40° cone
+    perspective: false,
+    fontStart:   11,
+    fontEnd:     14,
   },
   center: {
-    originPct:    { x: 0.50, y: 0.42 },   // center of sphere
-    angleCenter:  270,                      // straight up
-    spread:       70,
-    perspective:  false,
-    fontStart:    10,
-    fontEnd:      12,
+    originPct:   { x: 0.50, y: 0.42 },  // center of sphere
+    angleCenter: 270,                     // straight up
+    spread:      70,                      // ±35° cone
+    perspective: false,
+    fontStart:   10,
+    fontEnd:     12,
   },
 };
 
@@ -72,7 +71,7 @@ const SLOT_CONFIG = {
 
 /** @param {string} text @param {number} [softMax] @returns {string[]} */
 function splitIntoLines(text, softMax) {
-  const max   = (typeof softMax === 'number' && softMax > 0) ? softMax : LINE_SOFT_MAX;
+  const max = (typeof softMax === 'number' && softMax > 0) ? softMax : LINE_SOFT_MAX;
   const words = (text || '').trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return [];
   const lines = [];
@@ -80,9 +79,9 @@ function splitIntoLines(text, softMax) {
   for (const w of words) {
     const safe = w.length > LINE_HARD_MAX ? `${w.slice(0, LINE_HARD_MAX)}…` : w;
     const tent = cur ? `${cur} ${safe}` : safe;
-    if (tent.length <= max)         { cur = tent; }
-    else if (cur)                   { lines.push(cur); cur = safe; }
-    else                            { lines.push(safe); cur = ''; }
+    if (tent.length <= max) { cur = tent; }
+    else if (cur) { lines.push(cur); cur = safe; }
+    else { lines.push(safe); cur = ''; }
   }
   if (cur) lines.push(cur);
   return lines;
@@ -93,24 +92,24 @@ function splitIntoLines(text, softMax) {
 // ============================================================================
 
 const ARG_MAPS = {
-  init:         (a) => ({ n: a[0], proj: a[1] ? ` — routing to ${a[1]}` : '', t: a[0] }),
-  fetching:     (a) => ({ name: cap(a[0]), n: a[1], t: a[2] }),
-  hasThink:     (a) => ({ n: a[0] }),
-  hasArts:      (a) => ({ n: a[0] }),
-  pushing:      (a) => ({ name: cap(a[0]), msgs: a[1], model: a[2] }),
-  pushOk:       ()  => ({}),
-  fetchFail:    (a) => ({ name: cap(a[0]), err: a[1] || '' }),
-  pushFail:     (a) => ({ name: cap(a[0]) }),
-  retrying:     (a) => ({ name: cap(a[0]), n: a[1] }),
-  halfway:      (a) => ({ n: a[0], t: a[1], pct: Math.round((a[0]/(a[1]||1))*100) }),
-  nearEnd:      (a) => ({ left: a[0] }),
-  done_all:     (a) => ({ ok: a[0], t: a[1] }),
-  done_partial: (a) => ({ ok: a[0], t: a[1], missed: (a[1]||0)-(a[0]||0) }),
-  tangent:      ()  => ({}),
-  cancelled:    ()  => ({}),
-  zipping:      ()  => ({}),
-  zipDone:      ()  => ({}),
-  log:          ()  => ({}),
+  init: (a) => ({ n: a[0], proj: a[1] ? ` — routing to ${a[1]}` : '', t: a[0] }),
+  fetching: (a) => ({ name: cap(a[0]), n: a[1], t: a[2] }),
+  hasThink: (a) => ({ n: a[0] }),
+  hasArts: (a) => ({ n: a[0] }),
+  pushing: (a) => ({ name: cap(a[0]), msgs: a[1], model: a[2] }),
+  pushOk: () => ({}),
+  fetchFail: (a) => ({ name: cap(a[0]), err: a[1] || '' }),
+  pushFail: (a) => ({ name: cap(a[0]) }),
+  retrying: (a) => ({ name: cap(a[0]), n: a[1] }),
+  halfway: (a) => ({ n: a[0], t: a[1], pct: Math.round((a[0] / (a[1] || 1)) * 100) }),
+  nearEnd: (a) => ({ left: a[0] }),
+  done_all: (a) => ({ ok: a[0], t: a[1] }),
+  done_partial: (a) => ({ ok: a[0], t: a[1], missed: (a[1] || 0) - (a[0] || 0) }),
+  tangent: () => ({}),
+  cancelled: () => ({}),
+  zipping: () => ({}),
+  zipDone: () => ({}),
+  log: () => ({}),
 };
 
 const cap = (s) => (s || '').substring(0, 24);
@@ -183,9 +182,9 @@ async function loadCharacterRegistry() {
     if (!data || typeof data !== 'object') continue;
     CHARACTER_REGISTRY[id] = {
       id, name: data.name || id, label: data.label || data.name || id,
-      image:   `characters/${id}/${id}.png`,
-      colors:  Array.isArray(data.colors) && data.colors.length > 0 ? data.colors : ['#ffffff'],
-      credit:  data.credit || '',
+      image: `characters/${id}/${id}.png`,
+      colors: Array.isArray(data.colors) && data.colors.length > 0 ? data.colors : ['#ffffff'],
+      credit: data.credit || '',
       phrases: data.phrases || {},
       tangents: Array.isArray(data.tangents) ? data.tangents : [],
     };
@@ -207,7 +206,7 @@ async function loadCharacterRegistry() {
 // ============================================================================
 
 const OrbConfig = (() => {
-  let current   = { ...PAIR_DEFAULT };
+  let current = { ...PAIR_DEFAULT };
   let colorMode = COLOR_DEFAULT;
   let speedMult = SPEED_DEFAULT;
 
@@ -216,17 +215,17 @@ const OrbConfig = (() => {
       chrome.storage.sync.get([PAIR_KEY, COLOR_KEY, SPEED_KEY], stored => {
         const saved = stored[PAIR_KEY];
         if (saved && saved.left && CHARACTER_REGISTRY[saved.left] &&
-                     saved.right && CHARACTER_REGISTRY[saved.right]) {
+          saved.right && CHARACTER_REGISTRY[saved.right]) {
           current = { left: saved.left, right: saved.right };
         } else {
           const keys = Object.keys(CHARACTER_REGISTRY);
           current = {
-            left:  CHARACTER_REGISTRY[PAIR_DEFAULT.left]  ? PAIR_DEFAULT.left  : (keys[0] || '_fallback'),
+            left: CHARACTER_REGISTRY[PAIR_DEFAULT.left] ? PAIR_DEFAULT.left : (keys[0] || '_fallback'),
             right: CHARACTER_REGISTRY[PAIR_DEFAULT.right] ? PAIR_DEFAULT.right : (keys[1] || keys[0] || '_fallback'),
           };
         }
         colorMode = stored[COLOR_KEY] === 'theme' ? 'theme' : 'psychedelic';
-        const s   = parseFloat(stored[SPEED_KEY]);
+        const s = parseFloat(stored[SPEED_KEY]);
         speedMult = (!isNaN(s) && s >= 0.4 && s <= 2.5) ? s : SPEED_DEFAULT;
         resolve();
       });
@@ -249,11 +248,11 @@ const OrbConfig = (() => {
     return new Promise(r => chrome.storage.sync.set({ [SPEED_KEY]: speedMult }, r));
   }
 
-  function getCharacter(slot)   { return CHARACTER_REGISTRY[current[slot]] || Object.values(CHARACTER_REGISTRY)[0] || null; }
-  function getCurrent()         { return { ...current }; }
-  function getColorMode()       { return colorMode; }
-  function getSpeed()           { return speedMult; }
-  function getAllCharacters()    { return Object.values(CHARACTER_REGISTRY); }
+  function getCharacter(slot) { return CHARACTER_REGISTRY[current[slot]] || Object.values(CHARACTER_REGISTRY)[0] || null; }
+  function getCurrent() { return { ...current }; }
+  function getColorMode() { return colorMode; }
+  function getSpeed() { return speedMult; }
+  function getAllCharacters() { return Object.values(CHARACTER_REGISTRY); }
 
   return { load, setSlot, setColorMode, setSpeed, getCharacter, getCurrent, getColorMode, getSpeed, getAllCharacters };
 })();
@@ -276,7 +275,7 @@ const ErrorPanel = (() => {
     if (errors.length > MAX_ERRORS) errors.shift();
 
     const panel = _getEl();
-    const list  = _getList();
+    const list = _getList();
     if (!panel || !list) return;
     panel.classList.remove('hidden');
 
@@ -297,7 +296,7 @@ const ErrorPanel = (() => {
 
   function copyAll() {
     if (errors.length === 0) return;
-    navigator.clipboard.writeText(errors.join('\n')).catch(() => {});
+    navigator.clipboard.writeText(errors.join('\n')).catch(() => { });
   }
 
   function escHtml(s) {
@@ -305,10 +304,9 @@ const ErrorPanel = (() => {
   }
 
   function wire() {
-    const copyBtn  = document.getElementById('piqErrorCopy');
-    const closeBtn = document.getElementById('piqErrorClose');
-    if (copyBtn)  copyBtn.addEventListener('click', copyAll);
-    if (closeBtn) closeBtn.addEventListener('click', clear);
+    const copyBtn = document.getElementById('piqErrorCopy');
+    if (copyBtn) copyBtn.addEventListener('click', copyAll);
+    // No dismiss — error panel persists entire export session
   }
 
   return { addError, clear, wire };
@@ -324,24 +322,24 @@ const OrbController = (() => {
   const logBuf = /** @type {object[]} */ ([]);
   const LOG_MAX = 9;
 
-  const elById  = (id) => document.getElementById(id);
-  const setText  = (id, t) => { const e = elById(id); if (e) e.textContent = t || ''; };
+  const elById = (id) => document.getElementById(id);
+  const setText = (id, t) => { const e = elById(id); if (e) e.textContent = t || ''; };
 
   // ── Slot mouth origins (pixels relative to modal/overlay) ─────────────────
 
   function getSlotOrigins() {
-    const modal  = elById('piqOrbModal');
+    const modal = elById('piqOrbModal');
     const sphere = document.querySelector('.piq-orb-sphere');
     if (!modal || !sphere) return null;
     const mR = modal.getBoundingClientRect();
     const sR = sphere.getBoundingClientRect();
     const ox = sR.left - mR.left;
-    const oy = sR.top  - mR.top;
+    const oy = sR.top - mR.top;
 
     const result = {};
     for (const [slot, cfg] of Object.entries(SLOT_CONFIG)) {
       result[slot] = {
-        x: ox + sR.width  * cfg.originPct.x,
+        x: ox + sR.width * cfg.originPct.x,
         y: oy + sR.height * cfg.originPct.y,
       };
     }
@@ -351,18 +349,18 @@ const OrbController = (() => {
   // ── Line animation (with optional perspective font growth) ─────────────────
 
   function animateLine(el, ox, oy, vx, vy, duration, fontStart, fontEnd) {
-    const start    = performance.now();
+    const start = performance.now();
     const totalSec = duration / 1000;
     const growFont = (fontEnd !== undefined && fontEnd !== fontStart);
 
     function frame(now) {
-      const elapsed  = (now - start) / 1000;
+      const elapsed = (now - start) / 1000;
       const progress = elapsed / totalSec;
       if (progress >= 1 || !el.parentNode) { el.remove(); return; }
 
-      const opacity  = progress < 0.35 ? 1 : Math.max(0, 1 - (progress - 0.35) / 0.65);
+      const opacity = progress < 0.35 ? 1 : Math.max(0, 1 - (progress - 0.35) / 0.65);
       el.style.transform = `translate(${(ox + vx * elapsed).toFixed(1)}px, ${(oy + vy * elapsed).toFixed(1)}px)`;
-      el.style.opacity   = opacity.toFixed(3);
+      el.style.opacity = opacity.toFixed(3);
 
       if (growFont) {
         const fs = fontStart + (fontEnd - fontStart) * progress;
@@ -377,7 +375,7 @@ const OrbController = (() => {
 
   function makeLineEl(text, color, fontSize) {
     const el = document.createElement('div');
-    el.className   = 'piq-spray-line';
+    el.className = 'piq-spray-line';
     el.textContent = text;
     el.style.cssText = [
       `color: ${color}`,
@@ -407,28 +405,28 @@ const OrbController = (() => {
   function sprayFromSlot(slot, text, colorOverride) {
     if (!text || !text.trim()) return;
     const sprayLayer = elById('piqSprayLayer');
-    const origins    = getSlotOrigins();
+    const origins = getSlotOrigins();
     if (!sprayLayer || !origins || !origins[slot]) return;
 
     const slotCfg = SLOT_CONFIG[slot];
-    const origin  = origins[slot];
-    const speed   = OrbConfig.getSpeed();
-    const lines   = splitIntoLines(text, LINE_SOFT_MAX);
+    const origin = origins[slot];
+    const speed = OrbConfig.getSpeed();
+    const lines = splitIntoLines(text, LINE_SOFT_MAX);
     if (lines.length === 0) return;
 
     // Color: override for announces, character color for left/right
     let color = colorOverride || null;
     if (!color && slot !== 'center') {
       const charSlot = slot === 'left' ? 'left' : 'right';
-      const char     = OrbConfig.getCharacter(charSlot);
+      const char = OrbConfig.getCharacter(charSlot);
       color = _pickColor(charSlot, char && char.colors, OrbConfig.getColorMode());
     }
     if (!color) color = '#40ff90';
 
-    // Base angle for this quote (slight random within cluster)
+    // Base angle for this quote — spread is exact degree range (±spread/2 from center)
     const quoteBaseAngle = slotCfg.angleCenter
-      - slotCfg.spread * 0.3
-      + Math.random() * slotCfg.spread * 0.6;
+      - slotCfg.spread * 0.5
+      + Math.random() * slotCfg.spread;
 
     lines.forEach((line, i) => {
       setTimeout(() => {
@@ -437,7 +435,7 @@ const OrbController = (() => {
         const lineAngleDeg = quoteBaseAngle + (Math.random() - 0.5) * 20;
         const rad = (lineAngleDeg * Math.PI) / 180;
         const px_s = (70 + Math.random() * 55) * speed;
-        const dur  = (2800 + Math.random() * 1500) / speed;
+        const dur = (2800 + Math.random() * 1500) / speed;
 
         const el = makeLineEl(line, color, slotCfg.fontStart);
         el.style.transform = `translate(${origin.x.toFixed(1)}px, ${origin.y.toFixed(1)}px)`;
@@ -451,7 +449,8 @@ const OrbController = (() => {
           slotCfg.perspective ? slotCfg.fontEnd : slotCfg.fontStart
         );
 
-      }, i * Math.round(200 / speed));
+      // Floor at 250ms so line 2 can never overtake line 1 at any speed setting
+      }, i * Math.max(250, Math.round(380 / speed)));
     });
   }
 
@@ -486,9 +485,9 @@ const OrbController = (() => {
     const modal = elById('piqOrbModal');
     if (modal) modal.classList.remove('hidden');
     setText('piqOrbCount', `0 / ${total}`);
-    setText('piqOrbPct',   '0%');
-    setText('piqOrbName',  'Initializing…');
-    setText('piqOrbMeta',  '');
+    setText('piqOrbPct', '0%');
+    setText('piqOrbName', 'Initializing…');
+    setText('piqOrbMeta', '');
     const fill = elById('piqOrbFill');
     if (fill) fill.style.width = '0%';
     const spray = elById('piqSprayLayer');
@@ -521,7 +520,7 @@ const OrbController = (() => {
     const rc = OrbConfig.getCharacter('right');
 
     if (lc && lc.phrases) {
-      const k   = key === 'done' ? 'done_all' : key;
+      const k = key === 'done' ? 'done_all' : key;
       const val = lc.phrases[k];
       if (val) sprayFromSlot('left', resolveJsonPhrase(val, k, leftArgs || []));
     }
@@ -529,7 +528,7 @@ const OrbController = (() => {
     setTimeout(() => {
       maybeTangent(); // maybe fire a tangent instead of or alongside status
       if (rc && rc.phrases) {
-        const k   = key === 'done' ? 'done_all' : key;
+        const k = key === 'done' ? 'done_all' : key;
         const val = rc.phrases[k];
         if (val) sprayFromSlot('right', resolveJsonPhrase(val, k, rightArgs || []));
       }
@@ -553,13 +552,13 @@ const OrbController = (() => {
   function setCount(current, total) {
     const pct = total > 0 ? Math.round(current / total * 100) : 0;
     setText('piqOrbCount', `${current} / ${total}`);
-    setText('piqOrbPct',   `${pct}%`);
+    setText('piqOrbPct', `${pct}%`);
     const fill = elById('piqOrbFill');
     if (fill) fill.style.width = `${pct}%`;
   }
 
   function setCurrentName(name) { setText('piqOrbName', (name || '').substring(0, 52)); }
-  function setMeta(text)        { setText('piqOrbMeta', text || ''); }
+  function setMeta(text) { setText('piqOrbMeta', text || ''); }
 
   function logResult(result) {
     logBuf.push(result);
@@ -567,11 +566,11 @@ const OrbController = (() => {
     const logEl = elById('piqOrbLog');
     if (!logEl) return;
     logEl.innerHTML = logBuf.map(r => {
-      const cls  = `piq-log-line piq-log-${r.status === 'success' ? 'ok' : r.status === 'partial' ? 'partial' : r.status === 'skipped' ? 'skip' : 'failed'}`;
+      const cls = `piq-log-line piq-log-${r.status === 'success' ? 'ok' : r.status === 'partial' ? 'partial' : r.status === 'skipped' ? 'skip' : 'failed'}`;
       const icon = r.status === 'success' ? '✅' : r.status === 'partial' ? '⚡' : r.status === 'skipped' ? '⬜' : '❌';
-      const ph   = Object.entries(r.phases || {}).map(([k, v]) => `${k[0].toUpperCase()}:${v.ok ? '✓' : '✗'}`).join(' ');
-      const ms   = r.durationMs ? `${r.durationMs}ms` : '';
-      const nm   = (r.name || '').substring(0, 28).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const ph = Object.entries(r.phases || {}).map(([k, v]) => `${k[0].toUpperCase()}:${v.ok ? '✓' : '✗'}`).join(' ');
+      const ms = r.durationMs ? `${r.durationMs}ms` : '';
+      const nm = (r.name || '').substring(0, 28).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       return `<div class="${cls}">${icon} ${nm} ${ph} ${ms}</div>`;
     }).join('');
     logEl.scrollTop = logEl.scrollHeight;
@@ -585,8 +584,8 @@ const OrbController = (() => {
 // ============================================================================
 
 const DevMode = (() => {
-  let active    = false;
-  let timers    = /** @type {ReturnType<typeof setTimeout>[]} */ ([]);
+  let active = false;
+  let timers = /** @type {ReturnType<typeof setTimeout>[]} */ ([]);
 
   function clearTimers() {
     for (const t of timers) clearTimeout(t);
@@ -606,14 +605,14 @@ const DevMode = (() => {
     showCalib(true);
 
     const steps = [
-      () => OrbController.say('init',     [10, 'TestProject'], [10, 'TestProject']),
+      () => OrbController.say('init', [10, 'TestProject'], [10, 'TestProject']),
       async () => {
         OrbController.setCount(1, 10);
         OrbController.setCurrentName('Optimizing Taco Bell order for best value');
         OrbController.say('fetching', ['Taco Bell order', 1, 10], ['Taco Bell order', 1, 10]);
       },
       () => { OrbController.say('hasThink', [47], [47]); },
-      () => { OrbController.say('hasArts',  [3],  [3]);  },
+      () => { OrbController.say('hasArts', [3], [3]); },
       () => { OrbController.setCount(2, 10); OrbController.say('pushOk', [], []); OrbController.announce('Saved: chat_2026.05.10-143022.json', 'status'); },
       () => {
         OrbController.setCount(3, 10);
@@ -675,23 +674,23 @@ const OrbCharacterConfig = (() => {
     if (existing) { existing.remove(); return; }
 
     const panel = document.createElement('div');
-    panel.id        = 'orbCharConfig';
+    panel.id = 'orbCharConfig';
     panel.className = 'orb-char-config';
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-label', 'Orb character configuration');
 
-    const chars   = OrbConfig.getAllCharacters();
+    const chars = OrbConfig.getAllCharacters();
     const current = OrbConfig.getCurrent();
-    const mode    = OrbConfig.getColorMode();
-    const speed   = OrbConfig.getSpeed();
+    const mode = OrbConfig.getColorMode();
+    const speed = OrbConfig.getSpeed();
 
-    const div  = (cls) => { const d = document.createElement('div'); d.className = cls; return d; };
+    const div = (cls) => { const d = document.createElement('div'); d.className = cls; return d; };
     const span = (cls, t) => { const s = document.createElement('span'); s.className = cls; s.textContent = t; return s; };
 
     const titleRow = div('orb-char-title-row');
-    const titleEl  = div('orb-char-config-title'); titleEl.textContent = 'Orb Characters';
+    const titleEl = div('orb-char-config-title'); titleEl.textContent = 'Orb Characters';
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'orb-char-close'; closeBtn.textContent = '✕'; closeBtn.setAttribute('aria-label','Close');
+    closeBtn.className = 'orb-char-close'; closeBtn.textContent = '✕'; closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.onclick = () => panel.remove();
     titleRow.append(titleEl, closeBtn);
 
@@ -722,12 +721,12 @@ const OrbCharacterConfig = (() => {
     };
     slotsRow.append(buildSlot('left', '◀ Left slot (Butt-Head → right spray)'), buildSlot('right', 'Right slot (Beavis → left spray) ▶'));
 
-    const colorRow   = div('orb-char-color-row');
+    const colorRow = div('orb-char-color-row');
     const colorLabel = div('orb-char-slot-label'); colorLabel.textContent = 'Spray color mode';
-    const toggle     = div('orb-color-toggle');
+    const toggle = div('orb-color-toggle');
     for (const m of [
       { v: 'psychedelic', t: '🌈 Psychedelic (HSL rotation)' },
-      { v: 'theme',       t: '🎨 Character theme colors' },
+      { v: 'theme', t: '🎨 Character theme colors' },
     ]) {
       const btn = document.createElement('button');
       btn.className = `orb-color-btn${mode === m.v ? ' active' : ''}`;
@@ -742,19 +741,19 @@ const OrbCharacterConfig = (() => {
     const colorHint = div('orb-char-credit'); colorHint.textContent = 'Psychedelic: vivid rotating HSL. Theme: character palette.';
     colorRow.append(colorLabel, toggle, colorHint);
 
-    const speedRow   = div('orb-char-color-row');
+    const speedRow = div('orb-char-color-row');
     const speedLabel = div('orb-char-slot-label'); speedLabel.textContent = 'Spray speed';
-    const speedCtrl  = div('orb-speed-row');
-    const slider     = document.createElement('input');
+    const speedCtrl = div('orb-speed-row');
+    const slider = document.createElement('input');
     slider.type = 'range'; slider.min = '0.4'; slider.max = '2.5'; slider.step = '0.1';
     slider.value = String(speed); slider.className = 'orb-speed-slider';
-    slider.setAttribute('aria-label','Spray speed');
+    slider.setAttribute('aria-label', 'Spray speed');
     const speedVal = span('orb-speed-value', `${speed.toFixed(1)}×`);
     slider.addEventListener('input', async () => {
       speedVal.textContent = `${parseFloat(slider.value).toFixed(1)}×`;
       await OrbConfig.setSpeed(parseFloat(slider.value)).catch(console.warn);
     });
-    speedCtrl.append(span('orb-speed-emoji','🐢'), slider, span('orb-speed-emoji','🚀'), speedVal);
+    speedCtrl.append(span('orb-speed-emoji', '🐢'), slider, span('orb-speed-emoji', '🚀'), speedVal);
     const speedHint = div('orb-char-credit'); speedHint.textContent = '0.4× = slow/readable · 1.0× = default · 2.5× = rapid';
     speedRow.append(speedLabel, speedCtrl, speedHint);
 

@@ -172,3 +172,16 @@ select {
 }
 
 .route-note.hidden { display: none; }
+
+.option-group-home {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.project-label-hint {
+  font-size: 10px;
+  color: #506070;
+  font-weight: 400;
+  margin-left: 3px;
+}
