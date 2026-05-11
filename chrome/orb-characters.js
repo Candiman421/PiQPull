@@ -1,11 +1,11 @@
-// PiQPull — Orb Character System v1.5.0
-// Spray geometry (calibration grid = 10% per square, SVG 500×500):
-//   Butt-Head — origin top-center-2down (50%,22%) = SVG(250,108) → up 270° ±60° fan, perspective grow
-//   Beavis    — origin bottom-2up-3left (20%,80%) = SVG(100,400) → SW 135° ±40° cone (screen Y↓)
-//   System    — straight up 270° from center (50%,42%)
-// Error panel: persistent entire export session — no dismiss button, copy only.
-// Tangents: each character has random off-topic phrases mixed with status phrases.
-// Dev mode: calibration grid overlaid on sphere for screenshot-based position tuning.
+// PiQPull — Orb Character System v1.6.0
+// Spray geometry:
+//   Butt-Head — origin (50%,22%), axis 345deg upper-right, spread 200deg (upper-left thru right thru lower-right)
+//   Beavis    — origin (20%,80%), axis 170deg near-left, spread 130deg (upper-left thru left thru lower-left)
+//   System    — straight up 270deg from center (50%,42%)
+// say() throttled in browse-export.js: fires every 8th conversation to reduce density.
+// Error panel: persistent entire export session.
+// setDone(): changes Cancel to Done when export completes.
 
 'use strict';
 
@@ -29,36 +29,37 @@ const SPEED_DEFAULT = 1.0;
 const COLOR_DEFAULT = 'psychedelic';
 const PAIR_DEFAULT = { left: 'butthead', right: 'beavis' };
 
-// Spray geometry — spread is exact ±(spread/2)° range from angleCenter
-// Screen coords: origin top-left, Y increases downward
-//   sin(270°)=-1 → UP  sin(90°)=+1 → DOWN  sin(135°)=+0.707 → DOWN+LEFT = SW ✓
-// Left slot (Butt-Head): origin top-center-2down (50%,22%) = SVG(250,108)
-//   → axis 270° (up), spread ±60° fan = 210°–330°, perspective font 9→22px
-// Right slot (Beavis): origin bottom-2up-3left (20%,80%) = SVG(100,400)
-//   → axis 135° (SW in screen coords = down+left), spread ±40° = 95°–175°
-// Center (system): (50%,42%) → axis 270° up, spread ±35°
+// Spray geometry — screen coords Y increases downward:
+//   350deg = cos=0.985 sin=-0.174 = right+UP; 30deg = cos=0.866 sin=0.5 = right+down
+// Left slot (Butt-Head): origin (50%,22%), axis 345deg, spread 200deg
+//   Range: 245deg thru 85deg = upper-left, up, right, lower-right
+//   perspective: font 10->22px
+// Right slot (Beavis): origin (20%,80%), axis 170deg, spread 130deg
+//   170deg = mostly left, slight down; Range 105deg-235deg = upper-left thru left thru lower-left
+//   font 12->18px slight growth
+// Center (system): (50%,42%), 270deg up, spread 70deg
 
 const SLOT_CONFIG = {
   left: {
-    originPct:   { x: 0.50, y: 0.22 },  // top-center 2 squares down = SVG(250,108)
-    angleCenter: 270,                     // straight up
-    spread:      120,                     // ±60° fan — 3D vertical cone
-    perspective: true,                    // font 9→22px = coming toward viewer
-    fontStart:   9,
+    originPct:   { x: 0.50, y: 0.22 },
+    angleCenter: 345,                     // upper-right bias; range 245-85 includes lower-right
+    spread:      200,
+    perspective: true,
+    fontStart:   10,
     fontEnd:     22,
   },
   right: {
-    originPct:   { x: 0.20, y: 0.80 },  // bottom-2up-3left = SVG(100,400)
-    angleCenter: 135,                     // SW in screen coords (Y↓): down+left ✓
-    spread:      80,                      // ±40° cone
-    perspective: false,
-    fontStart:   11,
-    fontEnd:     14,
+    originPct:   { x: 0.20, y: 0.80 },
+    angleCenter: 170,                     // near-horizontal left, slight downward
+    spread:      130,                     // 105deg-235deg: upper-left thru left thru lower-left
+    perspective: true,                    // slight growth so same visual weight as BH
+    fontStart:   12,
+    fontEnd:     18,
   },
   center: {
-    originPct:   { x: 0.50, y: 0.42 },  // center of sphere
-    angleCenter: 270,                     // straight up
-    spread:      70,                      // ±35° cone
+    originPct:   { x: 0.50, y: 0.42 },
+    angleCenter: 270,
+    spread:      70,
     perspective: false,
     fontStart:   10,
     fontEnd:     12,
@@ -560,6 +561,12 @@ const OrbController = (() => {
   function setCurrentName(name) { setText('piqOrbName', (name || '').substring(0, 52)); }
   function setMeta(text) { setText('piqOrbMeta', text || ''); }
 
+  function setDone() {
+    cancelCb = null;
+    const btn = elById('piqOrbCancel');
+    if (btn) { btn.textContent = 'Done'; btn.classList.add('done-state'); btn.onclick = () => hide(); }
+  }
+
   function logResult(result) {
     logBuf.push(result);
     if (logBuf.length > LOG_MAX) logBuf.shift();
@@ -576,7 +583,7 @@ const OrbController = (() => {
     logEl.scrollTop = logEl.scrollHeight;
   }
 
-  return { show, hide, onCancel, say, announce, addError, setCount, setCurrentName, setMeta, logResult, applySvgFaces };
+  return { show, hide, onCancel, setDone, say, announce, addError, setCount, setCurrentName, setMeta, logResult, applySvgFaces };
 })();
 
 // ============================================================================

@@ -1,5 +1,9 @@
-// PiQPull — Browse: State v1.2.0
-// Added: accountSlug state + loadAccountSlug / saveAccountSlug
+// PiQPull — Browse: State v1.4.0
+// Removed: piQuixProjectFolder/Name routing state (server push is always-on, no mode toggle).
+// Removed: loadServerPush, loadPiQuixProjectSelection, savePiQuixProjectSelection.
+// Retained: groupByProject, includeProjectHome, all timestamp/prefs/account state.
+
+'use strict';
 
 const BrowseState = (() => {
   let allConversations = [];
@@ -8,7 +12,7 @@ const BrowseState = (() => {
   let projectsMap = {};
   let orgId = null;
   let orgName = null;
-  let accountSlug = 'unknown';  // NEW v1.2.0
+  let accountSlug = 'unknown';
   let sortStack = [{ field: 'updated', direction: 'desc' }];
   let selectedConversations = new Set();
   let lastCheckedIndex = null;
@@ -16,8 +20,6 @@ const BrowseState = (() => {
   let statusFilter = 'all';
   let dateFormat = 'mdy';
   let timeFormat = '12h';
-  let piQuixProjectFolder = '';
-  let piQuixProjectName = '';
   let groupByProject = false;
   let includeProjectHome = false;
 
@@ -34,8 +36,8 @@ const BrowseState = (() => {
     set orgId(v) { orgId = v; },
     get orgName() { return orgName; },
     set orgName(v) { orgName = v; },
-    get accountSlug() { return accountSlug; },         // NEW
-    set accountSlug(v) { accountSlug = v; },            // NEW
+    get accountSlug() { return accountSlug; },
+    set accountSlug(v) { accountSlug = v; },
     get sortStack() { return sortStack; },
     set sortStack(v) { sortStack = v; },
     get selected() { return selectedConversations; },
@@ -48,10 +50,6 @@ const BrowseState = (() => {
     set dateFormat(v) { dateFormat = v; },
     get timeFormat() { return timeFormat; },
     set timeFormat(v) { timeFormat = v; },
-    get piQuixProjectFolder() { return piQuixProjectFolder; },
-    set piQuixProjectFolder(v) { piQuixProjectFolder = v; },
-    get piQuixProjectName() { return piQuixProjectName; },
-    set piQuixProjectName(v) { piQuixProjectName = v; },
     get groupByProject() { return groupByProject; },
     set groupByProject(v) { groupByProject = !!v; },
     get includeProjectHome() { return includeProjectHome; },
@@ -112,31 +110,6 @@ const BrowseState = (() => {
       return new Promise(resolve => chrome.storage.local.set({ timeFormat }, resolve));
     },
 
-    async loadServerPush() {
-      return new Promise(resolve => {
-        chrome.storage.sync.get(['serverPush'], stored => resolve(!!stored.serverPush));
-      });
-    },
-
-    async loadPiQuixProjectSelection() {
-      return new Promise(resolve => {
-        chrome.storage.sync.get(['piQuixProjectFolder', 'piQuixProjectName'], stored => {
-          piQuixProjectFolder = stored.piQuixProjectFolder || '';
-          piQuixProjectName = stored.piQuixProjectName || '';
-          resolve({ folder: piQuixProjectFolder, projectName: piQuixProjectName });
-        });
-      });
-    },
-
-    async savePiQuixProjectSelection(folder, projectName) {
-      piQuixProjectFolder = folder;
-      piQuixProjectName = projectName;
-      return new Promise(resolve => {
-        chrome.storage.sync.set({ piQuixProjectFolder: folder, piQuixProjectName: projectName }, resolve);
-      });
-    },
-
-    // NEW v1.2.0: account slug persistence
     async loadAccountSlug() {
       return new Promise(resolve => {
         chrome.storage.sync.get(['currentAccountSlug'], stored => {
@@ -172,6 +145,6 @@ const BrowseState = (() => {
       includeProjectHome = !!val;
       return new Promise(resolve =>
         chrome.storage.local.set({ includeProjectHome }, resolve));
-    }
+    },
   };
 })();

@@ -508,7 +508,8 @@ const BrowseExport = (() => {
 
           OrbController.setCurrentName(conv.name || conv.uuid);
           OrbController.setCount(idx + 1, total);
-          OrbController.say('fetching', [conv.name, idx + 1, total], []);
+          // Throttle fetching speech — every 8th conversation only
+          if (idx % 8 === 0) OrbController.say('fetching', [conv.name, idx + 1, total], []);
 
           result.beginPhase('fetch');
           let convData = null;
@@ -579,9 +580,14 @@ const BrowseExport = (() => {
             ` | ✅${session.successCount} ❌${session.failedCount}`
           );
 
-          if (thinking > 30) OrbController.say('hasThink', [thinking], [thinking]);
-          else if (arts > 5) OrbController.say('hasArts', [arts], []);
-          else OrbController.say('pushing', [conv.name, msgs, model], []);
+          // Throttle speech — hasThink/hasArts always fire, pushing only every 8th
+          if (thinking > 30) {
+            OrbController.say('hasThink', [thinking], [thinking]);
+          } else if (arts > 5) {
+            OrbController.say('hasArts', [arts], []);
+          } else if (idx % 8 === 0) {
+            OrbController.say('pushing', [conv.name, msgs, model], []);
+          }
 
           // Phase: push
           result.beginPhase('push');
@@ -693,7 +699,8 @@ const BrowseExport = (() => {
         console.error('PiQPull bulk session error:', sessionErr);
         showToast(`Session error: ${sessionErr.message}`, true);
       } finally {
-        setTimeout(() => OrbController.hide(), 3000);
+        OrbController.setDone();
+        setTimeout(() => OrbController.hide(), 5000);
         if (exportBtn) { exportBtn.disabled = false; exportBtn.textContent = origLabel; }
       }
       return;
