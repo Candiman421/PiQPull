@@ -89,33 +89,38 @@
 
       <div class="export-controls-wrapper">
         <div class="export-settings">
+
+          <!-- Route row — always visible -->
           <div class="export-row export-project-row">
             <label class="project-route-label" for="piQuixProjectSelect">
               Route to PiQuix:
               <select id="piQuixProjectSelect">
-                <option value="">— none / download only —</option>
+                <option value="">— none / local download only —</option>
               </select>
               <span id="browseProjectLoadStatus" class="project-load-status"></span>
             </label>
+            <!-- Mode badge: changes based on route selection -->
+            <span id="exportModeBadge" class="export-mode-badge mode-local">⬇ Local Download</span>
           </div>
 
-          <div class="export-row">
+          <!-- Format / checkbox row — shown in local mode, collapsed in PiQuix mode -->
+          <div class="export-row" id="localModeControls">
             <div class="export-section">
-              <label>Format:
+              <label title="Output file format for local download">Format:
                 <select id="exportFormat">
-                  <option value="json">JSON</option>
-                  <option value="markdown">Markdown</option>
+                  <option value="json">JSON — full structured payload</option>
+                  <option value="markdown">Markdown — readable text</option>
                   <option value="text">Plain Text</option>
-                  <option value="jsonl">JSONL</option>
+                  <option value="jsonl">JSONL — one line per message</option>
                 </select>
               </label>
-              <label title="Include conversation messages">
+              <label title="Include conversation message text">
                 <input type="checkbox" id="includeChats" checked> Chats
               </label>
-              <label title="Include extended thinking blocks">
+              <label title="Include extended thinking blocks (if any)">
                 <input type="checkbox" id="includeThinking" checked> Thinking
               </label>
-              <label title="Add metadata header">
+              <label title="Prepend metadata header with model, dates, link">
                 <input type="checkbox" id="includeMetadata" checked> Metadata
               </label>
             </div>
@@ -123,31 +128,43 @@
             <div class="section-divider"></div>
 
             <div class="export-section">
-              <label>Artifacts:
+              <label title="Format for any extracted artifact files">Artifacts:
                 <select id="artifactFormat">
-                  <option value="original">Original</option>
+                  <option value="original">Original format</option>
                   <option value="markdown">Markdown</option>
                   <option value="text">Plain Text</option>
                   <option value="json">JSON</option>
                 </select>
               </label>
-              <label title="Artifacts inline in text">
+              <label title="Embed artifact content inline in the conversation text">
                 <input type="checkbox" id="includeArtifacts"> Inline
               </label>
-              <label title="Artifacts as separate files in subfolders">
+              <label title="Extract artifacts as separate files in a subfolder per conversation (ZIP)">
                 <input type="checkbox" id="extractArtifacts"> Nested
               </label>
-              <label title="Artifacts flat, name prefixed">
+              <label title="Extract artifacts as separate files, all in one flat Artifacts/ folder (ZIP)">
                 <input type="checkbox" id="flattenArtifacts"> Flat
               </label>
-              <label title="POST JSONL to localhost:7432/export/write">
-                <input type="checkbox" id="serverPush"> PiQuix
+              <label title="Also append a JSONL summary to PiQuix chat-logs via /export/write (legacy log)">
+                <input type="checkbox" id="serverPush"> Also log
               </label>
             </div>
           </div>
+
+          <!-- PiQuix mode info row — shown when route is selected -->
+          <div class="export-row piquix-mode-info hidden" id="piquixModeInfo">
+            <span class="piquix-mode-desc">
+              Full v2 payload → <code id="piquixRoutePath">incoming\PiQPull\…</code>
+              · JSON + artifacts\ + assets\ · one folder per conversation
+            </span>
+          </div>
+
         </div>
 
-        <button class="export-all-btn" id="exportAllBtn" disabled>Export All</button>
+        <div class="export-btn-group">
+          <button class="export-all-btn" id="exportAllBtn" disabled>Export All</button>
+          <button class="dev-btn" id="devBtn" title="Developer: test orb visuals with mock data">🔧 Dev</button>
+        </div>
       </div>
     </div>
   </div>
@@ -166,11 +183,21 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <!-- ================================================================
-       PIQ ORB — Export progress sphere with B&B shotgun spray words
+       PIQ ORB — Export progress sphere
        ================================================================ -->
   <div id="piqOrbModal" class="piq-orb-modal hidden" role="dialog" aria-modal="true" aria-label="Export progress">
 
-    <!-- Full-modal spray layer — words fly here, z-index above sphere -->
+    <!-- Error panel — top-left of modal, static red list, copyable -->
+    <div id="piqErrorPanel" class="piq-error-panel hidden" role="log" aria-label="Export errors">
+      <div class="piq-error-header">
+        <span class="piq-error-title">⚠ Errors</span>
+        <button class="piq-error-copy" id="piqErrorCopy" title="Copy all errors">Copy</button>
+        <button class="piq-error-close" id="piqErrorClose" aria-label="Dismiss errors">✕</button>
+      </div>
+      <div class="piq-error-list" id="piqErrorList"></div>
+    </div>
+
+    <!-- Spray layer — words fly here, z-index above everything except error panel -->
     <div id="piqSprayLayer" class="piq-spray-layer" aria-hidden="true"></div>
 
     <div class="piq-orb-sphere">
@@ -234,18 +261,18 @@
         <ellipse cx="180" cy="168" rx="60" ry="40" fill="white" opacity="0.055"
                  transform="rotate(-22 180 168)"/>
 
-        <!-- Butt-Head — top-left; mix-blend-mode:screen removes black bg -->
+        <!-- Butt-Head — top-left — faces right, words fly right + upper with perspective growth -->
         <image class="piq-bb-face" id="orbFaceLeft" href="faces/face-butthead.png"
-               x="52" y="58" width="145" height="185"
+               x="45" y="50" width="150" height="192"
                clip-path="url(#piqSphereClip)"/>
 
-        <!-- Beavis — bottom-right -->
+        <!-- Beavis — bottom-right — faces left, words fly left in front of his face -->
         <image class="piq-bb-face" id="orbFaceRight" href="faces/face-beavis.png"
-               x="330" y="295" width="115" height="165"
+               x="320" y="300" width="120" height="168"
                clip-path="url(#piqSphereClip)"/>
       </svg>
 
-      <!-- Center stats overlay -->
+      <!-- Center stats overlay — larger, positioned upper-center clear of faces -->
       <div class="piq-orb-center">
         <div class="piq-orb-count" id="piqOrbCount">0 / 0</div>
         <div class="piq-orb-pct"   id="piqOrbPct">0%</div>
@@ -257,7 +284,105 @@
         <div class="piq-orb-log"  id="piqOrbLog"></div>
       </div>
 
-      <button class="piq-orb-config-btn" id="piqOrbConfigBtn" title="Change characters" aria-label="Configure orb characters">⚙</button>
+      <!-- Dev calibration overlay — shows geometry grid + mouth markers in dev mode -->
+      <div id="piqDevCalib" class="piq-dev-calib hidden" aria-hidden="true">
+        <svg class="piq-dev-svg" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+          <!-- Grid lines — 10% intervals -->
+          <g stroke="rgba(0,255,200,0.25)" stroke-width="0.5" fill="none">
+            <line x1="50"  y1="0" x2="50"  y2="500"/>
+            <line x1="100" y1="0" x2="100" y2="500"/>
+            <line x1="150" y1="0" x2="150" y2="500"/>
+            <line x1="200" y1="0" x2="200" y2="500"/>
+            <line x1="250" y1="0" x2="250" y2="500"/>
+            <line x1="300" y1="0" x2="300" y2="500"/>
+            <line x1="350" y1="0" x2="350" y2="500"/>
+            <line x1="400" y1="0" x2="400" y2="500"/>
+            <line x1="450" y1="0" x2="450" y2="500"/>
+            <line x1="0" y1="50"  x2="500" y2="50"/>
+            <line x1="0" y1="100" x2="500" y2="100"/>
+            <line x1="0" y1="150" x2="500" y2="150"/>
+            <line x1="0" y1="200" x2="500" y2="200"/>
+            <line x1="0" y1="250" x2="500" y2="250"/>
+            <line x1="0" y1="300" x2="500" y2="300"/>
+            <line x1="0" y1="350" x2="500" y2="350"/>
+            <line x1="0" y1="400" x2="500" y2="400"/>
+            <line x1="0" y1="450" x2="500" y2="450"/>
+          </g>
+          <!-- Grid labels — every 100 units -->
+          <g fill="rgba(0,255,200,0.7)" font-size="10" font-family="monospace">
+            <text x="97"  y="12">20%</text>
+            <text x="197" y="12">40%</text>
+            <text x="297" y="12">60%</text>
+            <text x="397" y="12">80%</text>
+            <text x="2"   y="102">20%</text>
+            <text x="2"   y="202">40%</text>
+            <text x="2"   y="302">60%</text>
+            <text x="2"   y="402">80%</text>
+          </g>
+
+          <!-- Butt-Head mouth marker (25%, 46%) = SVG (125, 230) -->
+          <g stroke="#60d0ff" stroke-width="1.5" fill="none">
+            <line x1="115" y1="230" x2="135" y2="230"/>
+            <line x1="125" y1="220" x2="125" y2="240"/>
+            <circle cx="125" cy="230" r="5"/>
+            <!-- Spray direction arrow: rightward + upward ~330° -->
+            <line x1="125" y1="230" x2="195" y2="194" marker-end="url(#arrowBH)"/>
+          </g>
+          <text x="130" y="226" fill="#60d0ff" font-size="9" font-family="monospace">BH mouth 25%,46%</text>
+
+          <!-- Beavis mouth marker (75%, 87%) = SVG (375, 435) -->
+          <g stroke="#ffe060" stroke-width="1.5" fill="none">
+            <line x1="365" y1="435" x2="385" y2="435"/>
+            <line x1="375" y1="425" x2="375" y2="445"/>
+            <circle cx="375" cy="435" r="5"/>
+            <!-- Spray direction arrow: leftward ~175° -->
+            <line x1="375" y1="435" x2="295" y2="428" marker-end="url(#arrowBV)"/>
+          </g>
+          <text x="290" y="448" fill="#ffe060" font-size="9" font-family="monospace">BV mouth 75%,87%</text>
+
+          <!-- Center announce origin (50%, 42%) = SVG (250, 210) -->
+          <g stroke="#40ff90" stroke-width="1" fill="none">
+            <circle cx="250" cy="210" r="8" stroke-dasharray="4 3"/>
+            <!-- Upward arrow -->
+            <line x1="250" y1="210" x2="250" y2="155" marker-end="url(#arrowSys)"/>
+          </g>
+          <text x="255" y="207" fill="#40ff90" font-size="9" font-family="monospace">SYS 50%,42%</text>
+
+          <!-- Stats overlay region (35-65% x, 28-68% y) = SVG (175-325, 140-340) -->
+          <rect x="175" y="140" width="150" height="200"
+                fill="rgba(255,200,0,0.05)" stroke="rgba(255,200,0,0.35)"
+                stroke-width="1" stroke-dasharray="6 3"/>
+          <text x="178" y="155" fill="rgba(255,200,0,0.6)" font-size="9" font-family="monospace">STATS ZONE</text>
+
+          <!-- Arrow markers -->
+          <defs>
+            <marker id="arrowBH" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#60d0ff"/>
+            </marker>
+            <marker id="arrowBV" markerWidth="6" markerHeight="6" refX="0" refY="3" orient="auto">
+              <path d="M6,0 L6,6 L0,3 z" fill="#ffe060"/>
+            </marker>
+            <marker id="arrowSys" markerWidth="6" markerHeight="6" refX="3" refY="0" orient="auto">
+              <path d="M0,6 L6,6 L3,0 z" fill="#40ff90"/>
+            </marker>
+          </defs>
+
+          <!-- Face bounding boxes -->
+          <rect x="45" y="50" width="150" height="192"
+                fill="none" stroke="rgba(96,208,255,0.4)" stroke-width="1" stroke-dasharray="3 3"/>
+          <text x="47" y="63" fill="rgba(96,208,255,0.5)" font-size="8" font-family="monospace">BH face</text>
+          <rect x="320" y="300" width="120" height="168"
+                fill="none" stroke="rgba(255,224,96,0.4)" stroke-width="1" stroke-dasharray="3 3"/>
+          <text x="322" y="313" fill="rgba(255,224,96,0.5)" font-size="8" font-family="monospace">BV face</text>
+        </svg>
+        <div class="piq-dev-label">DEV CALIBRATION MODE — screenshot + share</div>
+      </div>
+
+      <!-- ⚙ config button — bottom-right corner of sphere, near Beavis foot -->
+      <button class="piq-orb-config-btn" id="piqOrbConfigBtn"
+              title="Change characters" aria-label="Configure orb characters">⚙</button>
+
+      <!-- Cancel button — bottom center -->
       <button class="piq-orb-cancel" id="piqOrbCancel">Cancel</button>
     </div>
   </div>

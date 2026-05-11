@@ -1182,3 +1182,250 @@ td { padding: 14px 15px; font-size: 14px; }
 .piq-spray-layer {
   z-index: 4000;
 }
+
+/* ================================================================
+   PiQPull browse.css APPEND — v1.3.0
+   Paste at the END of existing chrome/browse.css
+   Changes from v1.2.0 append:
+     - Dev button style
+     - Export mode badge
+     - Local/PiQuix mode controls show/hide
+     - Error panel (static red list)
+     - Orb center stats bigger
+     - ⚙ button repositioned to bottom-right of sphere
+     - Dev calibration overlay
+   ================================================================ */
+
+/* ── Export mode badge ── */
+.export-mode-badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.mode-local   { background: rgba(80,80,120,0.5); color: #a0a8d0; border: 1px solid rgba(100,100,180,0.3); }
+.mode-piquix  { background: rgba(80,50,160,0.7); color: #c8a8ff; border: 1px solid rgba(140,80,255,0.5); }
+
+/* ── PiQuix mode info row ── */
+.piquix-mode-info {
+  font-size: 11px;
+  color: rgba(180, 150, 255, 0.75);
+  padding: 3px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.piquix-mode-info code {
+  font-size: 10px;
+  background: rgba(80, 50, 160, 0.3);
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: #c0a0ff;
+}
+.piquix-mode-info.hidden { display: none; }
+
+/* ── Export project row layout fix (badge alongside select) ── */
+.export-project-row .project-route-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── Dev button ── */
+.export-btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+.dev-btn {
+  padding: 6px 10px;
+  background: rgba(40, 30, 60, 0.7);
+  border: 1px solid rgba(100, 80, 180, 0.4);
+  color: rgba(180, 150, 220, 0.75);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.dev-btn:hover {
+  background: rgba(80, 50, 140, 0.8);
+  border-color: rgba(160, 100, 255, 0.7);
+  color: #d0b0ff;
+}
+.dev-btn.active {
+  background: rgba(120, 60, 200, 0.8);
+  border-color: rgba(200, 130, 255, 0.9);
+  color: #f0d8ff;
+}
+
+/* ── Orb center stats — bigger, upper-center placement ── */
+.piq-orb-center {
+  position: absolute;
+  top: 28%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  z-index: 3200;
+  width: 62%;
+}
+.piq-orb-count {
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  line-height: 1.1;
+  text-shadow: 0 0 12px rgba(100, 80, 255, 0.8);
+  letter-spacing: 0.05em;
+}
+.piq-orb-pct {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: rgba(200, 180, 255, 0.9) !important;
+  margin-top: 1px;
+}
+.piq-orb-name {
+  font-size: 11px !important;
+  color: rgba(180, 160, 240, 0.75) !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  margin-top: 4px;
+}
+.piq-orb-meta {
+  font-size: 9px !important;
+  color: rgba(150, 130, 210, 0.6) !important;
+  margin-top: 3px;
+  min-height: 1em;
+}
+
+/* ── ⚙ config button — bottom-right near Beavis ── */
+.piq-orb-config-btn {
+  position: absolute;
+  bottom: 14%;
+  right: 9%;
+  background: rgba(20, 12, 40, 0.75);
+  border: 1px solid rgba(100, 70, 180, 0.45);
+  color: rgba(180, 140, 255, 0.7);
+  font-size: 13px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  z-index: 3300;
+  margin: 0;
+}
+.piq-orb-config-btn:hover {
+  background: rgba(60, 40, 120, 0.9);
+  border-color: rgba(160, 110, 255, 0.8);
+  color: #d0a8ff;
+}
+
+/* ── Error panel — static top-left of modal ── */
+.piq-error-panel {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 280px;
+  max-height: 200px;
+  background: rgba(60, 8, 8, 0.92);
+  border: 1px solid rgba(255, 60, 40, 0.6);
+  border-radius: 8px;
+  z-index: 4500;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+}
+.piq-error-panel.hidden { display: none; }
+
+.piq-error-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(120, 10, 10, 0.5);
+  border-bottom: 1px solid rgba(200, 40, 20, 0.3);
+  flex-shrink: 0;
+}
+.piq-error-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ff6050;
+  flex: 1;
+  letter-spacing: 0.05em;
+}
+.piq-error-copy, .piq-error-close {
+  background: none;
+  border: 1px solid rgba(255, 80, 60, 0.3);
+  color: rgba(255, 140, 120, 0.8);
+  border-radius: 3px;
+  padding: 1px 7px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin: 0;
+  width: auto;
+}
+.piq-error-copy:hover { background: rgba(180, 30, 20, 0.5); color: #ff9080; }
+.piq-error-close:hover { background: rgba(180, 30, 20, 0.5); color: #ff9080; }
+
+.piq-error-list {
+  padding: 6px 8px;
+  overflow-y: auto;
+  flex: 1;
+  font-size: 9px;
+  font-family: monospace;
+  color: #ff7060;
+  line-height: 1.6;
+}
+.piq-error-entry {
+  display: block;
+  border-bottom: 1px solid rgba(200, 40, 20, 0.15);
+  padding: 2px 0;
+}
+.piq-error-entry:last-child { border-bottom: none; }
+.piq-error-time { color: rgba(255, 100, 80, 0.5); margin-right: 5px; }
+
+/* ── Dev calibration overlay ── */
+.piq-dev-calib {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3500;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.piq-dev-calib.hidden { display: none; }
+
+.piq-dev-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.piq-dev-label {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  font-family: monospace;
+  color: rgba(0, 255, 200, 0.5);
+  white-space: nowrap;
+  letter-spacing: 0.08em;
+}
+
+/* ── Spray layer z-index fix (above sphere, below error panel) ── */
+.piq-spray-layer {
+  z-index: 4000;
+}
