@@ -1365,6 +1365,7 @@ td { padding: 14px 15px; font-size: 14px; }
   list-style: none;  /* hide default triangle in Firefox */
   display: flex;
   align-items: center;
+  -webkit-user-select: none;
   user-select: none;
   gap: 6px;
 }
@@ -1429,6 +1430,7 @@ details[open] > .orb-tuning-group-hint {
   text-align: right;
   /* hide browser number input spinners */
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 .orb-tuning-value::-webkit-inner-spin-button,
 .orb-tuning-value::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
