@@ -49,7 +49,12 @@
     {
       "resources": [
         "browse.html",
-        "characters/*"
+        "characters/*",
+        "orb-phrases.js",
+        "orb-colors.js",
+        "orb-registry.js",
+        "orb-panels.js",
+        "orb-controller.js"
       ],
       "matches": [
         "<all_urls>"

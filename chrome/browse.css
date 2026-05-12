@@ -1641,3 +1641,20 @@ details[open] > .orb-tuning-group-hint {
 .orb-char-config-body::-webkit-scrollbar       { width: 5px; }
 .orb-char-config-body::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
 .orb-char-config-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+/* ── Spray line — flying words inside piq-orb-sphere ── */
+/* color and font-size are set inline per-word; everything else is structural/static */
+.piq-spray-line {
+  white-space: nowrap;
+  position: absolute;
+  pointer-events: none;
+  will-change: transform, opacity;
+  font-family: "Comic Sans MS", "Comic Sans", "Segoe UI", system-ui, sans-serif;
+  font-style: italic;
+  font-weight: 700;
+  text-shadow: 0 0 7px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.85);
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  letter-spacing: 0.02em;
+}

@@ -1,4 +1,7 @@
-// PiQPull — Browse: Export Engine v1.6.0
+// PiQPull — Browse: Export Engine v1.7.0
+// v1.7.0: callout say() hook added — 15% chance per non-throttled conversation to riff on title.
+//         CompletionModal wired in both PATH A and PATH B finally blocks.
+//         PATH B missing setDone() fixed; both paths now 8s auto-hide (was 3s/5s).
 // v1.6.0: Artifact error surfacing (server-side artifact write failures now visible in error panel).
 //         Inline retry on push failure (2s delay, 1 attempt) for network/server errors.
 //         End-of-run retry pass: re-fetches and re-pushes all failed conversations once.
@@ -528,6 +531,8 @@ const BrowseExport = (() => {
           OrbController.setCount(idx + 1, total);
           // Throttle fetching speech — every 8th conversation only
           if (idx % 8 === 0) OrbController.say('fetching', [conv.name, idx + 1, total], []);
+          // Callout: 15% chance to riff on the conversation title
+          else if (Math.random() < 0.15) OrbController.say('callout', [conv.name], [conv.name]);
 
           result.beginPhase('fetch');
           let convData = null;

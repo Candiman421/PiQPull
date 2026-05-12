@@ -5,11 +5,12 @@
   "credit": "Mike Judge / Comedy Central (1993\u20132024)",
   "colors": ["#b8d4ff", "#a0c8ff", "#90b8f0", "#c0d8ff"],
 
-  "_phrase_format_note": "Each key is an array. Items may be strings OR {parts: [[...],[...],...]} objects. A {parts} item picks one element from each inner array and joins with space. This gives combinatorial variety from compact data.",
+  "_phrase_format_note": "Each key is an array. Items may be strings OR {parts: [[...],[...],...]} objects. A {parts} item picks one element from each inner array and joins with space.",
 
   "phrases": {
 
     "init": [
+      "Testes... Testes... 1... 2... 3...? Huh huh.",
       "Uh, {n} conversations to export{proj}. Huh huh. That's a number.",
       "Uh huh huh. {n} conversations. That's more than I usually count. Which is like, three.",
       "Beavis, we're exporting {n} conversations. Uh huh huh.",
@@ -18,6 +19,8 @@
       "Uh huh huh. {n}. I counted them. With my eyes. Huh huh.",
       "Uh, this is gonna take a while. I have nowhere to be. Huh huh.",
       "Uh, {n} conversations. The internet made a lot of stuff. Huh huh.",
+      "Beavis... this is the smartest thing I've ever done. Huh huh.",
+      "Uh, I never thought I'd run software. Huh huh. But here we are.",
       { "parts": [["Uh,","Uh huh huh.","Beavis,"], ["we got","there's","I count"], ["{n} things","all these conversations","{n} chats"], ["to export. Huh huh.","now. This is the greatest.","huh huh huh."]] }
     ],
 
@@ -35,13 +38,25 @@
       { "parts": [["Uh,","Uh huh huh."], ["getting","fetching","downloading"], ["\"{name}\"","this conversation","this one"], [". {n} of {t}. Huh huh.",". Huh huh.",". This is cool."]] }
     ],
 
+    "callout": [
+      "Uh, who names a conversation \"{name}\"? Huh huh.",
+      "Uh, \"{name}\". Huh huh. Is that like a band name?",
+      "\"{name}\"? Huh huh. That's a name. Huh huh.",
+      "Uh, this one's called \"{name}\". Huh huh. Someone thought about that.",
+      "Uh, \"{name}\". Huh huh. I would've named it something cooler.",
+      "Uh huh huh. \"{name}\". That's actually a pretty cool name. Huh huh.",
+      "Uh, \"{name}\". Huh huh. I respect that.",
+      "Uh, someone wrote a whole thing called \"{name}\". Huh huh. That's dedication.",
+      { "parts": [["Uh,","Uh huh huh."], ["\"{name}\".","So this is called \"{name}\"."], ["Huh huh.","Huh huh huh.","Interesting. Huh huh."]] }
+    ],
+
     "hasThink": [
       "This one had {n} thinking blocks. That's more thinking than I've done in my life.",
       "Uh, {n} thinking blocks. The computer was thinking really hard. Huh huh.",
       "Uh huh huh. It thought. A lot. That's more than me. Huh huh.",
       "Uh, {n} thoughts. I usually have like zero at a time. Huh huh.",
       "Uh, thinking. I respect that. Huh huh.",
-      "Uh... the computer thinks better than me. Huh huh. That's actually impressive."
+      "Uh, the computer thinks better than me. Huh huh. That's actually impressive."
     ],
 
     "hasArts": [
@@ -54,15 +69,16 @@
     ],
 
     "pushing": [
-      "Uh, pushing \"{name}\" — {msgs} messages. {model}. Huh huh.",
+      "Uh, pushing \"{name}\" \u2014 {msgs} messages. {model}. Huh huh.",
       "Uh, sending this to the server. Huh huh. The server better take it.",
-      "\"{name}\" — {msgs} messages and {model}. Huh huh. That's pretty cool.",
+      "\"{name}\" \u2014 {msgs} messages and {model}. Huh huh. That's pretty cool.",
       "Uh, this one's going to PiQuix. Huh huh. Wherever that is.",
       "Uh huh huh. Pushing. This is what it's all about.",
       "Uh, {msgs} messages. That's like a whole conversation. Huh huh.",
       "Uh, server. Take this. Huh huh.",
       "Uh huh huh. We are uploading. This is the greatest thing.",
       "Uh, \"{name}\" has {msgs} messages. That's a lot of words. Huh huh.",
+      "Damn, we're smooth. Huh huh.",
       { "parts": [["Uh,","Uh huh huh."], ["pushing","sending","uploading"], ["\"{name}\"","this conversation","this one"], ["to the server. Huh huh.","now. Huh huh huh.","huh huh."]] },
       { "parts": [["Uh,","Uh huh huh."], ["{msgs} messages","a whole chat","{msgs} turns"], ["and {model}.","from {model}.","huh huh."], ["Pretty cool.","This is smooth.","Huh huh huh."]] }
     ],
@@ -133,7 +149,8 @@
       "Uh, {t} saved. All of them. Huh huh. That is correct.",
       "Uh huh huh. We rule. All {t}. Done.",
       "Uh, every single one. {t}. Huh huh. I'm proud of us.",
-      "Uh, that was a lot of work. But we did it. {t}. Huh huh."
+      "Uh, that was a lot of work. But we did it. {t}. Huh huh.",
+      "Beavis, I think I figured it out. Huh huh. All of it."
     ],
 
     "done_partial": [
@@ -177,6 +194,14 @@
   },
 
   "tangents": [
+    "Testes... Testes... 1... 2... 3...? Huh huh.",
+    "Beavis... this is the smartest thing I've ever done. Huh huh.",
+    "Uh, Beavis. I have been thinking. Huh huh. We are gonna make it.",
+    "Uh, I never thought I'd run software. Huh huh. But here we are.",
+    "Uh, this is pretty impressive. Huh huh. Even by my standards.",
+    "Uh, you know what? This actually works. Huh huh. Sometimes things work.",
+    "Uh, I am operating a computer. Huh huh. With my hands.",
+    "Uh, this is what success feels like. Huh huh. I think.",
     "Uh, this is the greatest thing I have ever seen. Huh huh.",
     "Uh huh huh. You said 'push'.",
     "Uh, I'm thinking about getting a tattoo. Huh huh.",
@@ -192,7 +217,6 @@
     "Uh, I think I understand this. Huh huh. Actually, no.",
     "Uh, computers are pretty smart. For machines. Huh huh.",
     "Huh huh huh. Data.",
-    "Uh, my butt. Huh huh. That's funny.",
     "This rules. Huh huh.",
     "Uh, I'm bored. Huh huh huh. Keep going.",
     "Uh, technology. Huh huh.",
@@ -216,20 +240,15 @@
     "Uh, AxeTrapped. Huh huh. Axes are cool. Trapping them is even cooler.",
     "Uh, Claude wrote all this. Huh huh. That's a lot of work for a robot.",
     "Uh, VoidCodex. Huh huh. That sounds like a band I would listen to.",
-    "Uh, the server has 32 versions. Huh huh. That's a lot of versions. For a server.",
     "Uh, 25 projects. Huh huh. That's 25 things. Which is more than I usually count.",
     "Uh, PiQPull. Huh huh. That's a cool name for a thing that does a thing.",
     "Uh, PowerShell. Huh huh. Power. Shell. Both cool words. Combined.",
-    "Uh, this technology is pretty impressive. Huh huh. For technology.",
-    "Uh, that's a lot of endpoints. Huh huh. End. Points. Huh huh.",
     "Uh, CandisMan made all of this. Huh huh. That's a lot of stuff to make.",
     "Uh, AxeTrapped is gonna be cool. Huh huh. When it's done. Huh huh.",
     "Uh, this is the greatest software I have seen this week. Huh huh.",
     "Uh, Claude. Huh huh. Good name for an AI. Better than Beavis anyway. Huh huh.",
-    "Uh, six route files. Huh huh. That's like... organized. Huh huh.",
-    "Uh, PiQPull exported all those conversations. Huh huh. We are so good at this.",
-    "Uh, this server has been running for a while. Huh huh. Good server.",
-    "Uh, you can't polish a turd, Beavis. But you can refactor a server. Huh huh."
+    "Uh, you can't polish a turd, Beavis. But you can refactor a server. Huh huh.",
+    "Uh, Beavis. This is what we were born to do. Huh huh. Export stuff."
   ],
 
   "_sources": [
