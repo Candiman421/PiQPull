@@ -1,13 +1,15 @@
-// PiQPull — Orb Character System v1.7.0
+// PiQPull — Orb Character System v1.8.1
 // Spray geometry:
 //   Butt-Head — origin (50%,22%), axis 345deg upper-right, spread 200deg (upper-left thru right thru lower-right)
-//   Beavis    — origin (20%,80%), axis 170deg near-left, spread 130deg (upper-left thru left thru lower-left)
+//   Beavis    — origin (20%,80%), axis 180deg pure-left, spread 130deg (upper-left thru left thru lower-left)
 //   System    — straight up 270deg from center (50%,42%)
 // say() throttled in browse-export.js: fires every 8th conversation to reduce density.
 // Error panel: persistent entire export session.
 // setDone(): changes Cancel to Done when export completes.
+// v1.8.0: OrbTuning module — runtime control panel for all spray/physics/behavior values.
+//         25 tunable values. Auto-saves to chrome.storage.sync['orbTuning'].
+//         Dev Mode and real export share identical tuning state.
 // v1.7.0: resolveJsonPhrase supports {parts: string[][]} mix-and-match combinatorial phrases.
-//         Character JSON may now include pure strings, string arrays, OR {parts} objects within arrays.
 
 'use strict';
 
@@ -52,8 +54,8 @@ const SLOT_CONFIG = {
   },
   right: {
     originPct:   { x: 0.20, y: 0.80 },
-    angleCenter: 170,                     // near-horizontal left, slight downward
-    spread:      130,                     // 105deg-235deg: upper-left thru left thru lower-left
+    angleCenter: 180,                     // pure left; range 115-245 = upper-left thru left thru lower-left
+    spread:      130,                     // 115deg-245deg: upper-left thru left thru lower-left
     perspective: true,                    // slight growth so same visual weight as BH
     fontStart:   12,
     fontEnd:     18,
@@ -66,6 +68,53 @@ const SLOT_CONFIG = {
     fontStart:   10,
     fontEnd:     12,
   },
+};
+
+// ============================================================================
+// TUNING — runtime-adjustable spray/physics/behavior values
+// All values default-safe: the orb works correctly with TUNING_DEFAULTS alone.
+// OrbTuning.apply() writes these into SLOT_CONFIG on every change.
+// ============================================================================
+
+const TUNING_KEY = 'orbTuning';
+
+const TUNING_DEFAULTS = {
+  // Spray origins (fraction of sphere size, 0.0 = left/top, 1.0 = right/bottom)
+  leftOriginX:      0.50,
+  leftOriginY:      0.22,
+  rightOriginX:     0.20,
+  rightOriginY:     0.80,
+  centerOriginX:    0.50,
+  centerOriginY:    0.42,
+
+  // Spray axis angles (degrees, screen-space: 270 = up, 90 = down, 0/360 = right, 180 = left)
+  leftAngle:        345,
+  rightAngle:       180,
+  centerAngle:      270,
+
+  // Spray cone widths (degrees; full cone = leftAngle +/- leftSpread/2)
+  leftSpread:       200,
+  rightSpread:      130,
+  centerSpread:     70,
+
+  // Font sizes (px; start = spawn size, end = size at end of travel for perspective effect)
+  leftFontStart:    10,
+  leftFontEnd:      22,
+  rightFontStart:   12,
+  rightFontEnd:     18,
+  centerFontStart:  10,
+  centerFontEnd:    12,
+
+  // Word travel physics (multiplied by OrbConfig speed multiplier)
+  speedBase:        70,     // px/s base travel velocity
+  speedVariance:    55,     // px/s random addition per word
+  wordDuration:     2800,   // ms base word lifetime
+  wordDurVariance:  1500,   // ms random addition per word
+  staggerFloor:     380,    // ms: floor for Math.max(250, staggerFloor / speed)
+
+  // Text & behavior
+  lineSoftMax:      44,     // characters before soft line wrap
+  tangentProb:      0.25,   // 0.0–1.0 probability of injecting a tangent on say()
 };
 
 // ============================================================================
@@ -289,6 +338,121 @@ const OrbConfig = (() => {
 })();
 
 // ============================================================================
+// ORB TUNING — runtime control of spray geometry, physics, and behavior
+// Persists to chrome.storage.sync[TUNING_KEY]. Shared by Dev Mode + real export.
+// ============================================================================
+
+const OrbTuning = (() => {
+  // Start with a full copy of hardcoded defaults — safe to call get() before load() completes.
+  // _configDefaults is overwritten by tuning-defaults.json during load(); reset() restores to it.
+  let current = Object.assign({}, TUNING_DEFAULTS);
+  let _configDefaults = Object.assign({}, TUNING_DEFAULTS);
+  let _saveTimer = null;
+
+  /** Write current tuning values into SLOT_CONFIG. Takes effect on next sprayFromSlot() call. */
+  function apply() {
+    SLOT_CONFIG.left.originPct.x    = current.leftOriginX;
+    SLOT_CONFIG.left.originPct.y    = current.leftOriginY;
+    SLOT_CONFIG.left.angleCenter    = current.leftAngle;
+    SLOT_CONFIG.left.spread         = current.leftSpread;
+    SLOT_CONFIG.left.fontStart      = current.leftFontStart;
+    SLOT_CONFIG.left.fontEnd        = current.leftFontEnd;
+
+    SLOT_CONFIG.right.originPct.x   = current.rightOriginX;
+    SLOT_CONFIG.right.originPct.y   = current.rightOriginY;
+    SLOT_CONFIG.right.angleCenter   = current.rightAngle;
+    SLOT_CONFIG.right.spread        = current.rightSpread;
+    SLOT_CONFIG.right.fontStart     = current.rightFontStart;
+    SLOT_CONFIG.right.fontEnd       = current.rightFontEnd;
+
+    SLOT_CONFIG.center.originPct.x  = current.centerOriginX;
+    SLOT_CONFIG.center.originPct.y  = current.centerOriginY;
+    SLOT_CONFIG.center.angleCenter  = current.centerAngle;
+    SLOT_CONFIG.center.spread       = current.centerSpread;
+    SLOT_CONFIG.center.fontStart    = current.centerFontStart;
+    SLOT_CONFIG.center.fontEnd      = current.centerFontEnd;
+  }
+
+  /** Debounced save — coalesces rapid slider drags into one write (500ms window). */
+  function save() {
+    if (_saveTimer) clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => {
+      chrome.storage.sync.set({ [TUNING_KEY]: current }, () => {
+        if (chrome.runtime.lastError) {
+          console.warn('PiQPull OrbTuning: save failed —', chrome.runtime.lastError.message);
+        }
+      });
+    }, 500);
+  }
+
+  /** Load saved values, merge over defaults, apply. Safe to await in DOMContentLoaded.
+   *  Load order: TUNING_DEFAULTS → tuning-defaults.json (config) → chrome.storage.sync (user edits)
+   *  reset() restores to the config-file level, not all the way to hardcoded TUNING_DEFAULTS.
+   */
+  async function load() {
+    // Step 1: fetch tuning-defaults.json — builds _configDefaults (what Reset returns to)
+    try {
+      const cfgRes = await fetch(chrome.runtime.getURL('tuning-defaults.json'));
+      if (cfgRes.ok) {
+        const cfg = await cfgRes.json();
+        if (cfg && typeof cfg === 'object') {
+          // Merge known keys only — unknown keys (like _note) are silently skipped
+          const merged = Object.assign({}, TUNING_DEFAULTS);
+          for (const k of Object.keys(TUNING_DEFAULTS)) {
+            if (k in cfg && typeof cfg[k] === 'number') merged[k] = cfg[k];
+          }
+          _configDefaults = merged;
+        }
+      }
+    } catch (_e) {
+      // Non-fatal — TUNING_DEFAULTS already set as fallback
+      console.warn('PiQPull OrbTuning: tuning-defaults.json load failed —', _e.message);
+    }
+
+    // Step 2: load user overrides from chrome.storage.sync on top of config defaults
+    return new Promise(resolve => {
+      chrome.storage.sync.get([TUNING_KEY], stored => {
+        const saved = stored[TUNING_KEY];
+        if (saved && typeof saved === 'object') {
+          current = Object.assign({}, _configDefaults, saved);
+        } else {
+          current = Object.assign({}, _configDefaults);
+        }
+        apply();
+        resolve();
+      });
+    });
+  }
+
+  /** Restore to tuning-defaults.json values (or TUNING_DEFAULTS if file not loaded yet). */
+  function reset() {
+    current = Object.assign({}, _configDefaults);
+    apply();
+    save();
+  }
+
+  /**
+   * Set a single tuning value, apply immediately, queue save.
+   * @param {string} key
+   * @param {number} value
+   */
+  function set(key, value) {
+    if (!(key in TUNING_DEFAULTS)) {
+      console.warn('PiQPull OrbTuning: unknown key', key);
+      return;
+    }
+    current[key] = value;
+    apply();
+    save();
+  }
+
+  /** @returns {Readonly<typeof TUNING_DEFAULTS>} */
+  function get() { return current; }
+
+  return { load, reset, set, get };
+})();
+
+// ============================================================================
 // ERROR PANEL
 // ============================================================================
 
@@ -442,7 +606,7 @@ const OrbController = (() => {
     const slotCfg = SLOT_CONFIG[slot];
     const origin = origins[slot];
     const speed = OrbConfig.getSpeed();
-    const lines = splitIntoLines(text, LINE_SOFT_MAX);
+    const lines = splitIntoLines(text, OrbTuning.get().lineSoftMax);
     if (lines.length === 0) return;
 
     // Color: override for announces, character color for left/right
@@ -465,8 +629,9 @@ const OrbController = (() => {
 
         const lineAngleDeg = quoteBaseAngle + (Math.random() - 0.5) * 20;
         const rad = (lineAngleDeg * Math.PI) / 180;
-        const px_s = (70 + Math.random() * 55) * speed;
-        const dur = (2800 + Math.random() * 1500) / speed;
+        const t    = OrbTuning.get();
+        const px_s = (t.speedBase + Math.random() * t.speedVariance) * speed;
+        const dur  = (t.wordDuration + Math.random() * t.wordDurVariance) / speed;
 
         const el = makeLineEl(line, color, slotCfg.fontStart);
         el.style.transform = `translate(${origin.x.toFixed(1)}px, ${origin.y.toFixed(1)}px)`;
@@ -481,7 +646,7 @@ const OrbController = (() => {
         );
 
       // Floor at 250ms so line 2 can never overtake line 1 at any speed setting
-      }, i * Math.max(250, Math.round(380 / speed)));
+      }, i * Math.max(250, Math.round(OrbTuning.get().staggerFloor / speed)));
     });
   }
 
@@ -499,7 +664,7 @@ const OrbController = (() => {
   // ── Tangent injection (25% chance, right slot only) ────────────────────────
 
   function maybeTangent() {
-    if (Math.random() > 0.25) return; // 75% skip
+    if (Math.random() > OrbTuning.get().tangentProb) return; // skip based on tunable probability
     const char = OrbConfig.getCharacter('right');
     if (!char || !char.tangents || char.tangents.length === 0) return;
     const text = char.tangents[Math.floor(Math.random() * char.tangents.length)];
@@ -701,10 +866,168 @@ const DevMode = (() => {
 })();
 
 // ============================================================================
+// CALIBRATION REFRESH — updates the dev overlay SVG live as tuning values change
+// Called from OrbTuning.apply() and DevMode.showCalib(true).
+// Uses function declaration so it hoists and is available during apply().
+// ============================================================================
+
+function refreshCalibration() {
+  const calib = document.getElementById('piqDevCalib');
+  if (!calib || calib.classList.contains('hidden')) return; // only update when visible
+
+  const t = OrbTuning.get();
+  const S = 500; // SVG viewBox size matches sphere viewBox="0 0 500 500"
+  const AXIS_LEN   = 70;  // px: main direction arrow length
+  const SPREAD_LEN = 52;  // px: spread boundary line length (slightly shorter)
+  const CROSS      = 11;  // px: crosshair half-length
+  const LABEL_GAP  = 6;   // px: label offset from origin
+
+  /** Endpoint of a ray from (ox,oy) in direction deg at length len. */
+  function ray(ox, oy, deg, len) {
+    const rad = (deg * Math.PI) / 180;
+    return { x: ox + Math.cos(rad) * len, y: oy + Math.sin(rad) * len };
+  }
+
+  /** Update an SVG line element's endpoints. */
+  function line(id, x1, y1, x2, y2) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.setAttribute('x1', x1.toFixed(1)); el.setAttribute('y1', y1.toFixed(1));
+    el.setAttribute('x2', x2.toFixed(1)); el.setAttribute('y2', y2.toFixed(1));
+  }
+
+  /** Update an SVG circle element's center. */
+  function circle(id, cx, cy) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.setAttribute('cx', cx.toFixed(1)); el.setAttribute('cy', cy.toFixed(1));
+  }
+
+  /** Update an SVG text element's position and content. */
+  function label(id, ox, oy, text) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // Push label below origin if in upper half, above if in lower half
+    const below = oy < S / 2;
+    el.setAttribute('x', (ox + LABEL_GAP).toFixed(1));
+    el.setAttribute('y', (oy + (below ? LABEL_GAP + 9 : -LABEL_GAP)).toFixed(1));
+    el.textContent = text;
+  }
+
+  // ── Butt-Head (left slot) ──────────────────────────────────────────────
+  const bhX = t.leftOriginX * S;
+  const bhY = t.leftOriginY * S;
+  const bhAxis = ray(bhX, bhY, t.leftAngle, AXIS_LEN);
+  const bhSL   = ray(bhX, bhY, t.leftAngle - t.leftSpread / 2, SPREAD_LEN);
+  const bhSR   = ray(bhX, bhY, t.leftAngle + t.leftSpread / 2, SPREAD_LEN);
+
+  circle('calibBHOrigin',  bhX, bhY);
+  line('calibBHCrossH',    bhX - CROSS, bhY, bhX + CROSS, bhY);
+  line('calibBHCrossV',    bhX, bhY - CROSS, bhX, bhY + CROSS);
+  line('calibBHAxis',      bhX, bhY, bhAxis.x, bhAxis.y);
+  line('calibBHSpreadL',   bhX, bhY, bhSL.x, bhSL.y);
+  line('calibBHSpreadR',   bhX, bhY, bhSR.x, bhSR.y);
+  label('calibBHLabel',    bhX, bhY,
+    `BH ${Math.round(t.leftOriginX * 100)}%,${Math.round(t.leftOriginY * 100)}% ${t.leftAngle}deg +/-${Math.round(t.leftSpread / 2)}`);
+
+  // ── Beavis (right slot) ─────────────────────────────────────────────
+  const bvX = t.rightOriginX * S;
+  const bvY = t.rightOriginY * S;
+  const bvAxis = ray(bvX, bvY, t.rightAngle, AXIS_LEN);
+  const bvSL   = ray(bvX, bvY, t.rightAngle - t.rightSpread / 2, SPREAD_LEN);
+  const bvSR   = ray(bvX, bvY, t.rightAngle + t.rightSpread / 2, SPREAD_LEN);
+
+  circle('calibBVOrigin',  bvX, bvY);
+  line('calibBVCrossH',    bvX - CROSS, bvY, bvX + CROSS, bvY);
+  line('calibBVCrossV',    bvX, bvY - CROSS, bvX, bvY + CROSS);
+  line('calibBVAxis',      bvX, bvY, bvAxis.x, bvAxis.y);
+  line('calibBVSpreadL',   bvX, bvY, bvSL.x, bvSL.y);
+  line('calibBVSpreadR',   bvX, bvY, bvSR.x, bvSR.y);
+  label('calibBVLabel',    bvX, bvY,
+    `BV ${Math.round(t.rightOriginX * 100)}%,${Math.round(t.rightOriginY * 100)}% ${t.rightAngle}deg +/-${Math.round(t.rightSpread / 2)}`);
+
+  // ── System / center ────────────────────────────────────────────────
+  const sysX = t.centerOriginX * S;
+  const sysY = t.centerOriginY * S;
+  const sysAxis = ray(sysX, sysY, t.centerAngle, AXIS_LEN);
+  const sysSL   = ray(sysX, sysY, t.centerAngle - t.centerSpread / 2, SPREAD_LEN);
+  const sysSR   = ray(sysX, sysY, t.centerAngle + t.centerSpread / 2, SPREAD_LEN);
+
+  circle('calibSYSOrigin', sysX, sysY);
+  line('calibSYSCrossH',   sysX - CROSS, sysY, sysX + CROSS, sysY);
+  line('calibSYSCrossV',   sysX, sysY - CROSS, sysX, sysY + CROSS);
+  line('calibSYSAxis',     sysX, sysY, sysAxis.x, sysAxis.y);
+  line('calibSYSSpreadL',  sysX, sysY, sysSL.x, sysSL.y);
+  line('calibSYSSpreadR',  sysX, sysY, sysSR.x, sysSR.y);
+  label('calibSYSLabel',   sysX, sysY,
+    `SYS ${Math.round(t.centerOriginX * 100)}%,${Math.round(t.centerOriginY * 100)}% ${t.centerAngle}deg +/-${Math.round(t.centerSpread / 2)}`);
+}
+
+// ============================================================================
 // CHARACTER CONFIG UI
 // ============================================================================
 
 const OrbCharacterConfig = (() => {
+
+  // Data-driven tuning control definitions. Defined once at module scope, not recreated per panel open.
+  // scale: multiply stored value for display (stored origins are 0.0-1.0, displayed as 0-100%)
+  const TUNING_CONTROLS = [
+    {
+      id: 'origins', label: 'Spray Origins',
+      hint: 'Start point of word spray as % of sphere. Y=0 is top, Y=100 is bottom.',
+      rows: [
+        { key: 'leftOriginX',   label: 'Left X',   min: 0, max: 100, step: 1,  scale: 100, unit: '%' },
+        { key: 'leftOriginY',   label: 'Left Y',   min: 0, max: 100, step: 1,  scale: 100, unit: '%' },
+        { key: 'rightOriginX',  label: 'Right X',  min: 0, max: 100, step: 1,  scale: 100, unit: '%' },
+        { key: 'rightOriginY',  label: 'Right Y',  min: 0, max: 100, step: 1,  scale: 100, unit: '%' },
+        { key: 'centerOriginX', label: 'Ctr X',    min: 0, max: 100, step: 1,  scale: 100, unit: '%' },
+        { key: 'centerOriginY', label: 'Ctr Y',    min: 0, max: 100, step: 1,  scale: 100, unit: '%' },
+      ],
+    },
+    {
+      id: 'angles', label: 'Angles & Spread',
+      hint: 'Screen coords: 270=up, 90=down, 0/360=right, 180=left. Spread = total cone width in degrees.',
+      rows: [
+        { key: 'leftAngle',    label: 'Left axis',    min: 0, max: 360, step: 1, scale: 1, unit: 'deg' },
+        { key: 'leftSpread',   label: 'Left spread',  min: 0, max: 360, step: 1, scale: 1, unit: 'deg' },
+        { key: 'rightAngle',   label: 'Right axis',   min: 0, max: 360, step: 1, scale: 1, unit: 'deg' },
+        { key: 'rightSpread',  label: 'Right spread', min: 0, max: 360, step: 1, scale: 1, unit: 'deg' },
+        { key: 'centerAngle',  label: 'Ctr axis',     min: 0, max: 360, step: 1, scale: 1, unit: 'deg' },
+        { key: 'centerSpread', label: 'Ctr spread',   min: 0, max: 360, step: 1, scale: 1, unit: 'deg' },
+      ],
+    },
+    {
+      id: 'fonts', label: 'Font Sizes',
+      hint: 'Start = spawn size. End = size at end of travel. Difference creates the perspective growth effect.',
+      rows: [
+        { key: 'leftFontStart',   label: 'Left start',   min: 4, max: 48, step: 1, scale: 1, unit: 'px' },
+        { key: 'leftFontEnd',     label: 'Left end',     min: 4, max: 48, step: 1, scale: 1, unit: 'px' },
+        { key: 'rightFontStart',  label: 'Right start',  min: 4, max: 48, step: 1, scale: 1, unit: 'px' },
+        { key: 'rightFontEnd',    label: 'Right end',    min: 4, max: 48, step: 1, scale: 1, unit: 'px' },
+        { key: 'centerFontStart', label: 'Ctr start',    min: 4, max: 48, step: 1, scale: 1, unit: 'px' },
+        { key: 'centerFontEnd',   label: 'Ctr end',      min: 4, max: 48, step: 1, scale: 1, unit: 'px' },
+      ],
+    },
+    {
+      id: 'physics', label: 'Word Physics',
+      hint: 'All speed/duration values are scaled by the Speed multiplier above.',
+      rows: [
+        { key: 'speedBase',       label: 'Speed base',    min: 10,  max: 300,  step: 5,   scale: 1, unit: 'px/s' },
+        { key: 'speedVariance',   label: 'Speed burst',   min: 0,   max: 200,  step: 5,   scale: 1, unit: 'px/s' },
+        { key: 'wordDuration',    label: 'Duration',      min: 500, max: 8000, step: 100, scale: 1, unit: 'ms' },
+        { key: 'wordDurVariance', label: 'Dur. variance', min: 0,   max: 5000, step: 100, scale: 1, unit: 'ms' },
+        { key: 'staggerFloor',    label: 'Line stagger',  min: 50,  max: 1500, step: 10,  scale: 1, unit: 'ms' },
+      ],
+    },
+    {
+      id: 'behavior', label: 'Text & Behavior',
+      hint: 'Line wrap: soft char limit. Tangent: probability of a random off-topic Beavis line per say() call.',
+      rows: [
+        { key: 'lineSoftMax', label: 'Line wrap',  min: 10, max: 80,  step: 1, scale: 1,   unit: 'ch' },
+        { key: 'tangentProb', label: 'Tangent %',  min: 0,  max: 100, step: 1, scale: 100, unit: '%' },
+      ],
+    },
+  ];
 
   function buildUI() {
     const existing = document.getElementById('orbCharConfig');
@@ -796,7 +1119,125 @@ const OrbCharacterConfig = (() => {
 
     const hint = div('orb-char-hint'); hint.textContent = 'Add characters: drop folder in characters/ + add id to characters/index.json.';
 
-    panel.append(titleRow, slotsRow, colorRow, speedRow, hint);
+    // ── Tuning section helpers (local to buildUI, closed over panel) ──────────────────────
+
+    /** One slider+number+unit row for a tuning control. */
+    function makeTuningRow(cfg, tuningVals) {
+      const row = div('orb-tuning-row');
+      const lbl = div('orb-tuning-label');
+      lbl.textContent = cfg.label;
+
+      const displayVal = Math.round((tuningVals[cfg.key] || 0) * cfg.scale);
+
+      const rangeEl = document.createElement('input');
+      rangeEl.type = 'range';
+      rangeEl.className = 'orb-tuning-slider';
+      rangeEl.min = String(cfg.min);
+      rangeEl.max = String(cfg.max);
+      rangeEl.step = String(cfg.step);
+      rangeEl.value = String(displayVal);
+      rangeEl.dataset.tuningKey = cfg.key;
+      rangeEl.dataset.tuningScale = String(cfg.scale);
+
+      const numEl = document.createElement('input');
+      numEl.type = 'number';
+      numEl.className = 'orb-tuning-value';
+      numEl.min = String(cfg.min);
+      numEl.max = String(cfg.max);
+      numEl.step = String(cfg.step);
+      numEl.value = String(displayVal);
+      numEl.dataset.tuningNum = cfg.key;
+
+      const unitEl = span('orb-tuning-unit', cfg.unit);
+
+      // Bidirectional sync: range <-> number. Both call OrbTuning.set() which apply()s immediately.
+      rangeEl.addEventListener('input', () => {
+        const v = parseFloat(rangeEl.value);
+        numEl.value = String(v);
+        OrbTuning.set(cfg.key, v / cfg.scale);
+      });
+      numEl.addEventListener('change', () => {
+        const clamped = Math.max(cfg.min, Math.min(cfg.max, parseFloat(numEl.value) || 0));
+        rangeEl.value = String(clamped);
+        numEl.value = String(clamped);
+        OrbTuning.set(cfg.key, clamped / cfg.scale);
+      });
+
+      row.append(lbl, rangeEl, numEl, unitEl);
+      return row;
+    }
+
+    /** Refresh all slider/number inputs from current OrbTuning state after Reset. */
+    function refreshTuningInputs(container) {
+      const vals = OrbTuning.get();
+      container.querySelectorAll('[data-tuning-key]').forEach(rangeEl => {
+        const key = rangeEl.dataset.tuningKey;
+        const scale = parseFloat(rangeEl.dataset.tuningScale) || 1;
+        const displayVal = Math.round((vals[key] || 0) * scale);
+        rangeEl.value = String(displayVal);
+        const numEl = container.querySelector('[data-tuning-num="' + key + '"]');
+        if (numEl) numEl.value = String(displayVal);
+      });
+    }
+
+    /** Build the full tuning section: groups + reset + test spray. */
+    function buildTuningSection() {
+      const tuningVals = OrbTuning.get();
+      const wrapper = div('orb-tuning-section');
+
+      wrapper.appendChild(div('orb-tuning-divider'));
+      const sectionLbl = div('orb-char-slot-label orb-tuning-section-title');
+      sectionLbl.textContent = 'Spray Tuning';
+      wrapper.appendChild(sectionLbl);
+
+      for (const group of TUNING_CONTROLS) {
+        const details = document.createElement('details');
+        details.className = 'orb-tuning-group';
+        details.open = false; // collapsed by default; user opens what they need
+
+        const summary = document.createElement('summary');
+        summary.className = 'orb-tuning-group-title';
+        summary.textContent = group.label;
+        details.appendChild(summary);
+
+        const hintEl = div('orb-tuning-group-hint');
+        hintEl.textContent = group.hint;
+        details.appendChild(hintEl);
+
+        for (const rowCfg of group.rows) {
+          details.appendChild(makeTuningRow(rowCfg, tuningVals));
+        }
+        wrapper.appendChild(details);
+      }
+
+      const footer = div('orb-tuning-footer');
+
+      const resetBtn = document.createElement('button');
+      resetBtn.className = 'orb-tuning-btn';
+      resetBtn.textContent = 'Reset All to Defaults';
+      resetBtn.addEventListener('click', () => {
+        OrbTuning.reset();
+        refreshTuningInputs(wrapper);
+      });
+
+      const testBtn = document.createElement('button');
+      testBtn.className = 'orb-tuning-btn orb-tuning-btn--test';
+      testBtn.textContent = 'Test Spray';
+      testBtn.title = 'Fire a test spray so you can see tuning changes immediately. Opens orb if not already showing.';
+      testBtn.addEventListener('click', () => {
+        const modal = document.getElementById('piqOrbModal');
+        if (modal && modal.classList.contains('hidden')) OrbController.show(1, '');
+        OrbController.say('pushing', ['Test Chat', 42, 'S4.6'], ['Test Chat']);
+        setTimeout(() => OrbController.announce('Tuning test spray', 'status'), 200);
+      });
+
+      footer.append(resetBtn, testBtn);
+      wrapper.appendChild(footer);
+      return wrapper;
+    }
+
+    const tuningSection = buildTuningSection();
+    panel.append(titleRow, slotsRow, colorRow, speedRow, hint, tuningSection);
     document.body.appendChild(panel);
     setTimeout(() => { document.addEventListener('click', function h() { panel.remove(); document.removeEventListener('click', h); }); }, 0);
     panel.addEventListener('click', e => e.stopPropagation());
@@ -812,6 +1253,7 @@ const OrbCharacterConfig = (() => {
 document.addEventListener('DOMContentLoaded', async () => {
   await loadCharacterRegistry();
   await OrbConfig.load();
+  await OrbTuning.load(); // load saved tuning values and apply to SLOT_CONFIG
   OrbController.applySvgFaces();
   ErrorPanel.wire();
 

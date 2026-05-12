@@ -1,14 +1,10 @@
-// PiQPull — Shared Utility Functions v1.4.0
+// PiQPull — Shared Utility Functions v1.4.2
+// v1.4.2: fetchImageAssetBytes — 15s AbortController timeout prevents single slow image from hanging export.
 // All functions are defensive: null-safe, array-guarded, no implicit coercion.
-// No unused variables. No var declarations. Strict equality throughout.
-// Re-injection guard: Chrome content scripts run in the page context; re-injecting this file
-// would cause 'const MODEL_TIMELINE already declared' SyntaxError. Guard prevents that.
-if (typeof window !== 'undefined' && window.__piqpullUtils) {
-  // Already initialized in this content script context — stop re-execution.
-  // 'return' at top-level is valid and terminates execution in Chrome content scripts.
-  return; // eslint-disable-line no-useless-return
-}
-if (typeof window !== 'undefined') window.__piqpullUtils = true;
+// Strict equality throughout.
+// Re-injection safety: top-level data structures use var (re-declaration silently allowed).
+// top-level function declarations are also safely re-declarable on re-injection.
+// No top-level return statement — illegal in script context regardless of environment.
 
 // =============================================================================
 // 1. TIMESTAMP
@@ -25,7 +21,7 @@ function getPiQTimestamp() {
 // 2. MODEL INFERENCE
 // =============================================================================
 
-const MODEL_TIMELINE = [
+var MODEL_TIMELINE = [
   { from: new Date('2024-01-01'), model: 'claude-3-sonnet-20240229'      },
   { from: new Date('2024-06-20'), model: 'claude-3-5-sonnet-20240620'    },
   { from: new Date('2024-10-22'), model: 'claude-3-5-sonnet-20241022'    },
@@ -155,7 +151,7 @@ function extractArtifactsFromMessage(message) {
   return artifacts;
 }
 
-const LANG_MAP = {
+var LANG_MAP = {
   md:'markdown', markdown:'markdown', txt:'text', text:'text', csv:'csv',
   js:'javascript', mjs:'javascript', cjs:'javascript',
   ts:'typescript', jsx:'jsx', tsx:'tsx',
@@ -169,7 +165,7 @@ const LANG_MAP = {
   clj:'clojure', fs:'fsharp', lua:'lua', pl:'perl', r:'r',
 };
 
-const DOC_EXTS = new Set(['md','txt','markdown','text','svg','xml','html','htm','css','csv']);
+var DOC_EXTS = new Set(['md','txt','markdown','text','svg','xml','html','htm','css','csv']);
 
 /** @param {string} srcText */
 function extractArtifactsFromText(srcText) {
@@ -225,7 +221,7 @@ function extractArtifactsFromText(srcText) {
 // 5. LANGUAGE / EXTENSION HELPERS
 // =============================================================================
 
-const PROGRAMMING_LANGS = new Set([
+var PROGRAMMING_LANGS = new Set([
   'javascript','typescript','python','java','c','cpp','c++','ruby','php',
   'swift','go','rust','jsx','tsx','shell','bash','sql','kotlin','scala',
   'r','perl','lua','dart','elixir','erlang','haskell','clojure','fsharp',
@@ -238,7 +234,7 @@ function isProgrammingLanguage(lang) {
   return PROGRAMMING_LANGS.has((lang || '').toLowerCase());
 }
 
-const EXT_MAP = {
+var EXT_MAP = {
   javascript:'.js', typescript:'.ts', python:'.py', java:'.java', c:'.c', cpp:'.cpp',
   'c++':'.cpp', ruby:'.rb', php:'.php', swift:'.swift', go:'.go', rust:'.rs',
   jsx:'.jsx', tsx:'.tsx', shell:'.sh', bash:'.sh', sql:'.sql', kotlin:'.kt',
@@ -543,12 +539,16 @@ function arrayBufferToBase64(buf) {
 
 /** @param {string} url @returns {Promise<string|null>} */
 async function fetchImageAssetBytes(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000); // 15s timeout — one slow image shouldn't block an export
   try {
-    const res = await fetch(url, { credentials: 'include' });
+    const res = await fetch(url, { credentials: 'include', signal: controller.signal });
     if (!res.ok) return null;
     return arrayBufferToBase64(await res.arrayBuffer());
   } catch (_e) {
-    return null;
+    return null; // includes AbortError on timeout
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -682,7 +682,7 @@ function computeConversationStats(convData) {
   };
 }
 
-const BRANCH_SENTINEL = '00000000-0000-4000-8000-000000000000';
+var BRANCH_SENTINEL = '00000000-0000-4000-8000-000000000000';
 
 /** @param {{ chat_messages?: unknown[], current_leaf_message_uuid?: string }} convData */
 function buildBranchMap(convData) {

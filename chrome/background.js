@@ -1,6 +1,6 @@
-// PiQPull — Background Service Worker v1.2.0
-// Handles all cross-origin fetches: PiQuix server + Claude.ai proxy.
-// No direct DOM access. All communication via chrome.runtime.onMessage.
+// PiQPull — Background Service Worker v1.3.0
+// v1.3.0: postToServer — 90s AbortController timeout prevents service worker from hanging
+//         on slow server responses (large payloads, disk writes, etc.)
 
 'use strict';
 
@@ -178,15 +178,20 @@ function handleGetKnownOrgs(sendResponse) {
 
 /** @param {string} path @param {object} body @returns {Promise<{ success: boolean, data?: unknown, error?: string }>} */
 async function postToServer(path, body) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90000); // 90s timeout — prevents service worker hang on large payloads
   let res;
   try {
     res = await fetch(`${PIQUIX_SERVER}${path}`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(body),
+      signal:  controller.signal,
     });
   } catch (netErr) {
-    return { success: false, error: `Network error: ${netErr.message}` };
+    return { success: false, error: netErr.name === 'AbortError' ? 'Server timeout (90s) — server may be overloaded or payload too large' : `Network error: ${netErr.message}` };
+  } finally {
+    clearTimeout(timer);
   }
 
   if (!res.ok) {

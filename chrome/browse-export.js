@@ -1,10 +1,14 @@
-// PiQPull — Browse: Export Engine v1.5.1
-// Fixed: say() throttled every 8th conv. setDone() before hide. Session log write.
-// Fixed: Project home downloads per unique project_uuid when includeProjectHome checked.
+// PiQPull — Browse: Export Engine v1.6.0
+// v1.6.0: Artifact error surfacing (server-side artifact write failures now visible in error panel).
+//         Inline retry on push failure (2s delay, 1 attempt) for network/server errors.
+//         End-of-run retry pass: re-fetches and re-pushes all failed conversations once.
+//         postToServer timeout (90s) in background.js prevents service worker hang.
+//         fetchImageAssetBytes timeout (15s) in utils.js prevents single-image hang.
+//         Server artifact filename sanitization: Windows-invalid chars replaced with _.
+// v1.5.1: orgName in project home section fixed to BrowseState.orgName (was bare undefined var).
 // v1.5.0: pushToIncoming accepts optional overrideFolder/ProjName params; exportAll snapshots
 //         routing state at start so destination-picker changes mid-run have no effect.
 //         Picker + export button disabled during active bulk run, re-enabled in finally.
-// v1.5.1: orgName in project home section fixed to BrowseState.orgName (was bare undefined var).
 
 'use strict';
 
@@ -611,22 +615,56 @@ const BrowseExport = (() => {
             const pushResult = await pushToIncoming(convData, conv.uuid, convUrl, snapFolder, snapProjName);
 
             if (pushResult.success) {
+              // Surface any artifact write failures the server flagged (partial success)
+              const artErrors = (pushResult.data && Array.isArray(pushResult.data.artifacts))
+                ? pushResult.data.artifacts.filter(a => a && a.error) : [];
+              for (const ae of artErrors) {
+                OrbController.addError(`Artifact failed: ${ae.filename || '?'} — ${ae.error}`);
+              }
               result.endPhase('push', true);
               result.meta.outputFilename = (pushResult.data && pushResult.data.jsonFilename) || null;
               result.seal((pushResult.data && pushResult.data.jsonPath) || null);
               OrbController.say('pushOk', [], []);
             } else {
-              result.endPhase('push', false, pushResult.error || 'Unknown error');
-              result.notes.push(`push: ${pushResult.error || 'Unknown error'}`);
-              result.seal(null);
-              OrbController.say('pushFail', [conv.name], []);
+              // Inline retry: wait 2s, try once more before marking as failed
+              await new Promise(r => setTimeout(r, 2000));
+              let retryR = null;
+              try { retryR = await pushToIncoming(convData, conv.uuid, convUrl, snapFolder, snapProjName); } catch (_re) { /* fall through to failure */ }
+              if (retryR && retryR.success) {
+                result.retries++;
+                const artE = (retryR.data && Array.isArray(retryR.data.artifacts)) ? retryR.data.artifacts.filter(a => a && a.error) : [];
+                for (const ae of artE) OrbController.addError(`Artifact failed: ${ae.filename || '?'} — ${ae.error}`);
+                result.endPhase('push', true);
+                result.meta.outputFilename = (retryR.data && retryR.data.jsonFilename) || null;
+                result.seal((retryR.data && retryR.data.jsonPath) || null);
+                OrbController.say('pushOk', [], []);
+              } else {
+                result.endPhase('push', false, pushResult.error || 'Unknown error');
+                result.notes.push(`push: ${pushResult.error || 'Unknown error'}`);
+                result.seal(null);
+                OrbController.say('pushFail', [conv.name], []);
+              }
             }
           } catch (pushErr) {
-            result.endPhase('push', false, pushErr.message);
-            result.notes.push(`push threw: ${pushErr.message}`);
-            result.seal(null);
-            OrbController.say('pushFail', [conv.name], []);
-            OrbController.announce(`Push failed: ${result.phases.push?.error || 'unknown'}`, 'error');
+            // Inline retry for network/timeout errors
+            await new Promise(r => setTimeout(r, 2000));
+            let retryR = null;
+            try { retryR = await pushToIncoming(convData, conv.uuid, convUrl, snapFolder, snapProjName); } catch (_re) { /* fall through to failure */ }
+            if (retryR && retryR.success) {
+              result.retries++;
+              const artE = (retryR.data && Array.isArray(retryR.data.artifacts)) ? retryR.data.artifacts.filter(a => a && a.error) : [];
+              for (const ae of artE) OrbController.addError(`Artifact failed: ${ae.filename || '?'} — ${ae.error}`);
+              result.endPhase('push', true);
+              result.meta.outputFilename = (retryR.data && retryR.data.jsonFilename) || null;
+              result.seal((retryR.data && retryR.data.jsonPath) || null);
+              OrbController.say('pushOk', [], []);
+            } else {
+              result.endPhase('push', false, pushErr.message);
+              result.notes.push(`push threw: ${pushErr.message}`);
+              result.seal(null);
+              OrbController.say('pushFail', [conv.name], []);
+              OrbController.announce(`Push failed: ${result.phases.push?.error || 'unknown'}`, 'error');
+            }
           }
 
           OrbController.logResult(result);
@@ -640,6 +678,54 @@ const BrowseExport = (() => {
 
           await new Promise(r => setTimeout(r, 60));
         } // end for
+
+        // ── End-of-run retry pass ── re-fetch + re-push all failed conversations once ────────
+        const toRetry = session.results.filter(r => r.status === 'failed');
+        if (!isCancelled && toRetry.length > 0) {
+          OrbController.announce(`↺ Retrying ${toRetry.length} failed…`, 'warn');
+          await new Promise(r => setTimeout(r, 1500));
+
+          for (const failedResult of toRetry) {
+            if (isCancelled) break;
+            const conv = subset.find(c => c.uuid === failedResult.uuid);
+            if (!conv) continue;
+
+            OrbController.setCurrentName(`↺ ${conv.name || conv.uuid}`);
+            const retryStart = Date.now();
+            try {
+              const res = await fetch(
+                `https://claude.ai/api/organizations/${orgId}/chat_conversations/${conv.uuid}?tree=True&rendering_mode=messages&render_all_tools=true`,
+                { credentials: 'include', headers: { Accept: 'application/json' } }
+              );
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const convData = await res.json();
+              if (!convData || !Array.isArray(convData.chat_messages)) throw new Error('Invalid response');
+              convData.model = inferModel(convData);
+
+              const retryPush = await pushToIncoming(convData, conv.uuid, `https://claude.ai/chat/${conv.uuid}`, snapFolder, snapProjName);
+
+              if (retryPush.success) {
+                const artE = (retryPush.data && Array.isArray(retryPush.data.artifacts))
+                  ? retryPush.data.artifacts.filter(a => a && a.error) : [];
+                for (const ae of artE) OrbController.addError(`↺ Art: ${ae.filename || '?'} — ${ae.error}`);
+                failedResult.phases['retry'] = { ok: true, startMs: retryStart, ms: Date.now() - retryStart, error: null };
+                failedResult.retries++;
+                failedResult.status = 'success';
+                failedResult.outputPath = (retryPush.data && retryPush.data.jsonPath) || null;
+                failedResult.meta.outputFilename = (retryPush.data && retryPush.data.jsonFilename) || null;
+                OrbController.announce(`↺ Recovered: ${(conv.name || conv.uuid).substring(0, 30)}`, 'status');
+              } else {
+                failedResult.phases['retry'] = { ok: false, startMs: retryStart, ms: Date.now() - retryStart, error: retryPush.error || 'retry failed' };
+                OrbController.addError(`↺ Still failed: ${(conv.name || conv.uuid).substring(0, 28)}`);
+              }
+            } catch (retryErr) {
+              failedResult.phases['retry'] = { ok: false, startMs: retryStart, ms: Date.now() - retryStart, error: retryErr.message };
+              OrbController.addError(`↺ Retry error: ${(conv.name || conv.uuid).substring(0, 24)}: ${retryErr.message}`);
+            }
+            OrbController.logResult(failedResult);
+            await new Promise(r => setTimeout(r, 400));
+          }
+        }
 
         session.seal(isCancelled);
         console.log(session.toConsoleSummary());

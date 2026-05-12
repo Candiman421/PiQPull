@@ -292,7 +292,7 @@
           height="192" clip-path="url(#piqSphereClip)" />
 
         <!-- Beavis — bottom-right — faces left, words fly left in front of his face -->
-        <image class="piq-bb-face" id="orbFaceRight" href="faces/face-beavis.png" x="320" y="300" width="120"
+        <image class="piq-bb-face" id="orbFaceRight" href="faces/face-beavis.png" x="300" y="275" width="120"
           height="168" clip-path="url(#piqSphereClip)" />
       </svg>
 
@@ -344,36 +344,38 @@
             <text x="2" y="402">80%</text>
           </g>
 
-          <!-- Butt-Head spray origin (50%,22%) = SVG(250,108) top-center 2 squares down -->
-          <g stroke="#60d0ff" stroke-width="1.5" fill="none">
-            <line x1="240" y1="108" x2="260" y2="108" />
-            <line x1="250" y1="98" x2="250" y2="118" />
-            <circle cx="250" cy="108" r="5" />
-            <!-- +/-60deg fan: 210deg left-up, 270deg straight up, 330deg right-up -->
-            <line x1="250" y1="108" x2="197" y2="78" marker-end="url(#arrowBH)" />
-            <line x1="250" y1="108" x2="250" y2="50" marker-end="url(#arrowBH)" />
-            <line x1="250" y1="108" x2="303" y2="78" marker-end="url(#arrowBH)" />
+          <!-- Butt-Head spray origin -- all elements get IDs so refreshCalibration() can update them live -->
+          <g id="calibBH" stroke="#60d0ff" stroke-width="1.5" fill="none">
+            <line id="calibBHCrossH" x1="240" y1="108" x2="260" y2="108" />
+            <line id="calibBHCrossV" x1="250" y1="98"  x2="250" y2="118" />
+            <circle id="calibBHOrigin" cx="250" cy="108" r="7" fill="rgba(96,208,255,0.15)" stroke="#60d0ff" stroke-width="2" />
+            <line id="calibBHAxis"    x1="250" y1="108" x2="250" y2="50"  stroke-width="2" marker-end="url(#arrowBH)" />
+            <line id="calibBHSpreadL" x1="250" y1="108" x2="197" y2="78"  stroke-dasharray="3 2" stroke-opacity="0.55" />
+            <line id="calibBHSpreadR" x1="250" y1="108" x2="303" y2="78"  stroke-dasharray="3 2" stroke-opacity="0.55" />
           </g>
-          <text x="255" y="106" fill="#60d0ff" font-size="9" font-family="monospace">BH 50%,22% fan-up</text>
+          <text id="calibBHLabel" x="255" y="106" fill="#60d0ff" font-size="9" font-family="monospace">BH 50%,22% 345deg +/-100</text>
 
-          <!-- Beavis spray origin (20%,80%) = SVG(100,400) bottom-2up-3left 135deg SW cone -->
-          <g stroke="#ffe060" stroke-width="1.5" fill="none">
-            <line x1="90" y1="400" x2="110" y2="400" />
-            <line x1="100" y1="390" x2="100" y2="410" />
-            <circle cx="100" cy="400" r="5" />
-            <!-- 135deg = SW in screen coords (Y-down): 95deg, 135deg, 175deg -->
-            <line x1="100" y1="400" x2="43" y2="457" marker-end="url(#arrowBV)" />
-            <line x1="100" y1="400" x2="29" y2="414" marker-end="url(#arrowBV)" />
-            <line x1="100" y1="400" x2="60" y2="464" marker-end="url(#arrowBV)" />
+          <!-- Beavis spray origin -->
+          <g id="calibBV" stroke="#ffe060" stroke-width="1.5" fill="none">
+            <line id="calibBVCrossH" x1="90"  y1="400" x2="110" y2="400" />
+            <line id="calibBVCrossV" x1="100" y1="390" x2="100" y2="410" />
+            <circle id="calibBVOrigin" cx="100" cy="400" r="7" fill="rgba(255,224,96,0.15)" stroke="#ffe060" stroke-width="2" />
+            <line id="calibBVAxis"    x1="100" y1="400" x2="43"  y2="457" stroke-width="2" marker-end="url(#arrowBV)" />
+            <line id="calibBVSpreadL" x1="100" y1="400" x2="43"  y2="400" stroke-dasharray="3 2" stroke-opacity="0.55" />
+            <line id="calibBVSpreadR" x1="100" y1="400" x2="60"  y2="464" stroke-dasharray="3 2" stroke-opacity="0.55" />
           </g>
-          <text x="105" y="397" fill="#ffe060" font-size="9" font-family="monospace">BV 20%,80% 135SW</text>
+          <text id="calibBVLabel" x="105" y="397" fill="#ffe060" font-size="9" font-family="monospace">BV 20%,80% 170deg +/-65</text>
 
-          <!-- Center announce origin (50%,42%) = SVG(250,210) straight up -->
-          <g stroke="#40ff90" stroke-width="1" fill="none">
-            <circle cx="250" cy="210" r="8" stroke-dasharray="4 3" />
-            <line x1="250" y1="210" x2="250" y2="155" marker-end="url(#arrowSys)" />
+          <!-- Center / system announce origin -->
+          <g id="calibSYS" stroke="#40ff90" stroke-width="1.2" fill="none">
+            <line id="calibSYSCrossH" x1="242" y1="210" x2="258" y2="210" />
+            <line id="calibSYSCrossV" x1="250" y1="202" x2="250" y2="218" />
+            <circle id="calibSYSOrigin" cx="250" cy="210" r="8" fill="rgba(64,255,144,0.1)" stroke="#40ff90" stroke-width="1.5" stroke-dasharray="4 3" />
+            <line id="calibSYSAxis"    x1="250" y1="210" x2="250" y2="155" stroke-width="1.5" marker-end="url(#arrowSys)" />
+            <line id="calibSYSSpreadL" x1="250" y1="210" x2="212" y2="155" stroke-dasharray="3 2" stroke-opacity="0.55" />
+            <line id="calibSYSSpreadR" x1="250" y1="210" x2="288" y2="155" stroke-dasharray="3 2" stroke-opacity="0.55" />
           </g>
-          <text x="255" y="207" fill="#40ff90" font-size="9" font-family="monospace">SYS 50%,42%</text>
+          <text id="calibSYSLabel" x="255" y="207" fill="#40ff90" font-size="9" font-family="monospace">SYS 50%,42% 270deg +/-35</text>
 
           <!-- Stats zone (35-65% x, 28-68% y) = SVG (175-325, 140-340) -->
           <rect x="175" y="140" width="150" height="200" fill="rgba(255,200,0,0.05)" stroke="rgba(255,200,0,0.35)"
@@ -397,9 +399,9 @@
           <rect x="45" y="50" width="150" height="192" fill="none" stroke="rgba(96,208,255,0.4)" stroke-width="1"
             stroke-dasharray="3 3" />
           <text x="47" y="63" fill="rgba(96,208,255,0.5)" font-size="8" font-family="monospace">BH face</text>
-          <rect x="320" y="300" width="120" height="168" fill="none" stroke="rgba(255,224,96,0.4)" stroke-width="1"
+          <rect x="300" y="275" width="120" height="168" fill="none" stroke="rgba(255,224,96,0.4)" stroke-width="1"
             stroke-dasharray="3 3" />
-          <text x="322" y="313" fill="rgba(255,224,96,0.5)" font-size="8" font-family="monospace">BV face</text>
+          <text x="302" y="288" fill="rgba(255,224,96,0.5)" font-size="8" font-family="monospace">BV face</text>
         </svg>
         <div class="piq-dev-label">DEV CALIBRATION MODE -- screenshot + share</div>
       </div>

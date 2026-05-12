@@ -1064,8 +1064,8 @@ td { padding: 14px 15px; font-size: 14px; }
 .piq-orb-config-btn {
   position: absolute;
   top: auto;
-  bottom: 14%;
-  right: 9%;
+  bottom: 5%;
+  right: 15%;
   background: rgba(20, 12, 40, 0.75);
   border: 1px solid rgba(100, 70, 180, 0.45);
   color: rgba(180, 140, 255, 0.7);
@@ -1322,6 +1322,164 @@ td { padding: 14px 15px; font-size: 14px; }
 .group-toggle:hover { color: var(--text-primary); }
 .group-select-all { cursor: pointer; width: 15px; height: 15px; flex-shrink: 0; }
 
+/* ================================================================
+   OrbTuning control panel — v1.8.0
+   Appended below orb-char-config in the gear panel.
+   All groups use native <details>/<summary> for collapse — no JS needed.
+   ================================================================ */
+
+.orb-tuning-section {
+  width: 100%;
+}
+
+/* Divider between character panel and tuning panel */
+.orb-tuning-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 14px 0 10px;
+}
+
+.orb-tuning-section-title {
+  padding: 0 0 6px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-dim, #4a6278);
+}
+
+/* Each group is a <details> element */
+.orb-tuning-group {
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 5px;
+  margin-bottom: 5px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.15);
+}
+
+.orb-tuning-group-title {
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(180,200,220,0.85);
+  cursor: pointer;
+  list-style: none;  /* hide default triangle in Firefox */
+  display: flex;
+  align-items: center;
+  user-select: none;
+  gap: 6px;
+}
+.orb-tuning-group-title::-webkit-details-marker { display: none; } /* hide default triangle */
+.orb-tuning-group-title::before {
+  content: '\25B6'; /* right-pointing triangle */
+  font-size: 8px;
+  color: rgba(180,200,220,0.5);
+  transition: transform 0.15s;
+}
+details[open] > .orb-tuning-group-title::before {
+  transform: rotate(90deg);
+}
+
+.orb-tuning-group-hint {
+  padding: 0 10px 7px;
+  font-size: 10px;
+  color: rgba(130,160,180,0.65);
+  line-height: 1.4;
+  display: none; /* only shown when group is open */
+}
+details[open] > .orb-tuning-group-hint {
+  display: block;
+}
+
+/* One control row: label + range slider + number input + unit */
+.orb-tuning-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 52px 32px;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.orb-tuning-row:first-of-type { border-top: none; }
+
+.orb-tuning-label {
+  font-size: 10px;
+  color: rgba(160,185,205,0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.orb-tuning-slider {
+  width: 100%;
+  height: 3px;
+  accent-color: #5a9fd4;
+  cursor: pointer;
+  background: transparent;
+}
+
+.orb-tuning-value {
+  width: 52px;
+  padding: 3px 5px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 3px;
+  color: rgba(180,205,225,0.9);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  text-align: right;
+  /* hide browser number input spinners */
+  -moz-appearance: textfield;
+}
+.orb-tuning-value::-webkit-inner-spin-button,
+.orb-tuning-value::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.orb-tuning-value:focus {
+  outline: none;
+  border-color: rgba(90,159,212,0.5);
+}
+
+.orb-tuning-unit {
+  font-size: 9px;
+  color: rgba(120,150,170,0.6);
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  white-space: nowrap;
+}
+
+/* Footer: Reset + Test Spray */
+.orb-tuning-footer {
+  display: flex;
+  gap: 8px;
+  padding: 10px 0 0;
+  justify-content: flex-start;
+}
+
+.orb-tuning-btn {
+  padding: 5px 12px;
+  font-size: 11px;
+  background: rgba(60,80,100,0.4);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  color: rgba(170,195,215,0.85);
+  cursor: pointer;
+  white-space: nowrap;
+  width: auto;
+  transition: background 0.15s, border-color 0.15s;
+}
+.orb-tuning-btn:hover {
+  background: rgba(80,110,140,0.5);
+  border-color: rgba(255,255,255,0.2);
+  color: rgba(200,220,235,0.95);
+}
+
+.orb-tuning-btn--test {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.25);
+  color: #52d3a0;
+}
+.orb-tuning-btn--test:hover {
+  background: rgba(52, 211, 153, 0.18);
+  border-color: rgba(52, 211, 153, 0.45);
+}
+
 /* ── Done state — Cancel button turns green when export finishes ── */
 .piq-orb-cancel.done-state {
   background: rgba(20, 80, 40, 0.85);
@@ -1329,252 +1487,4 @@ td { padding: 14px 15px; font-size: 14px; }
   color: #80ff90;
   font-weight: 700;
   letter-spacing: 0.08em;
-}
-
-/* ================================================================
-   PiQPull browse.css APPEND — v1.3.0
-   Paste at the END of existing chrome/browse.css
-   Changes from v1.2.0 append:
-     - Dev button style
-     - Export mode badge
-     - Local/PiQuix mode controls show/hide
-     - Error panel (static red list)
-     - Orb center stats bigger
-     - ⚙ button repositioned to bottom-right of sphere
-     - Dev calibration overlay
-   ================================================================ */
-
-/* ── Export mode badge ── */
-.export-mode-badge {
-  display: inline-block;
-  padding: 2px 9px;
-  border-radius: 10px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.mode-local   { background: rgba(80,80,120,0.5); color: #a0a8d0; border: 1px solid rgba(100,100,180,0.3); }
-.mode-piquix  { background: rgba(80,50,160,0.7); color: #c8a8ff; border: 1px solid rgba(140,80,255,0.5); }
-
-/* ── PiQuix mode info row ── */
-.piquix-mode-info {
-  font-size: 11px;
-  color: rgba(180, 150, 255, 0.75);
-  padding: 3px 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.piquix-mode-info code {
-  font-size: 10px;
-  background: rgba(80, 50, 160, 0.3);
-  padding: 1px 6px;
-  border-radius: 3px;
-  color: #c0a0ff;
-}
-.piquix-mode-info.hidden { display: none; }
-
-/* ── Export project row layout fix (badge alongside select) ── */
-.export-project-row .project-route-label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-/* ── Dev button ── */
-.export-btn-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: stretch;
-}
-.dev-btn {
-  padding: 6px 10px;
-  background: rgba(40, 30, 60, 0.7);
-  border: 1px solid rgba(100, 80, 180, 0.4);
-  color: rgba(180, 150, 220, 0.75);
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-.dev-btn:hover {
-  background: rgba(80, 50, 140, 0.8);
-  border-color: rgba(160, 100, 255, 0.7);
-  color: #d0b0ff;
-}
-.dev-btn.active {
-  background: rgba(120, 60, 200, 0.8);
-  border-color: rgba(200, 130, 255, 0.9);
-  color: #f0d8ff;
-}
-
-/* ── Orb center stats — bigger, upper-center placement ── */
-.piq-orb-center {
-  position: absolute;
-  top: 28%;
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  pointer-events: none;
-  z-index: 3200;
-  width: 62%;
-}
-.piq-orb-count {
-  font-size: 26px !important;
-  font-weight: 800 !important;
-  color: #ffffff !important;
-  line-height: 1.1;
-  text-shadow: 0 0 12px rgba(100, 80, 255, 0.8);
-  letter-spacing: 0.05em;
-}
-.piq-orb-pct {
-  font-size: 15px !important;
-  font-weight: 700 !important;
-  color: rgba(200, 180, 255, 0.9) !important;
-  margin-top: 1px;
-}
-.piq-orb-name {
-  font-size: 11px !important;
-  color: rgba(180, 160, 240, 0.75) !important;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  margin-top: 4px;
-}
-.piq-orb-meta {
-  font-size: 9px !important;
-  color: rgba(150, 130, 210, 0.6) !important;
-  margin-top: 3px;
-  min-height: 1em;
-}
-
-/* ── ⚙ config button — bottom-right near Beavis ── */
-.piq-orb-config-btn {
-  position: absolute;
-  bottom: 14%;
-  right: 9%;
-  background: rgba(20, 12, 40, 0.75);
-  border: 1px solid rgba(100, 70, 180, 0.45);
-  color: rgba(180, 140, 255, 0.7);
-  font-size: 13px;
-  width: 26px; height: 26px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s;
-  z-index: 3300;
-  margin: 0;
-}
-.piq-orb-config-btn:hover {
-  background: rgba(60, 40, 120, 0.9);
-  border-color: rgba(160, 110, 255, 0.8);
-  color: #d0a8ff;
-}
-
-/* ── Error panel — static top-left of modal ── */
-.piq-error-panel {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  width: 280px;
-  max-height: 200px;
-  background: rgba(60, 8, 8, 0.92);
-  border: 1px solid rgba(255, 60, 40, 0.6);
-  border-radius: 8px;
-  z-index: 4500;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-}
-.piq-error-panel.hidden { display: none; }
-
-.piq-error-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: rgba(120, 10, 10, 0.5);
-  border-bottom: 1px solid rgba(200, 40, 20, 0.3);
-  flex-shrink: 0;
-}
-.piq-error-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: #ff6050;
-  flex: 1;
-  letter-spacing: 0.05em;
-}
-.piq-error-copy, .piq-error-close {
-  background: none;
-  border: 1px solid rgba(255, 80, 60, 0.3);
-  color: rgba(255, 140, 120, 0.8);
-  border-radius: 3px;
-  padding: 1px 7px;
-  font-size: 10px;
-  cursor: pointer;
-  transition: all 0.15s;
-  margin: 0;
-  width: auto;
-}
-.piq-error-copy:hover { background: rgba(180, 30, 20, 0.5); color: #ff9080; }
-.piq-error-close:hover { background: rgba(180, 30, 20, 0.5); color: #ff9080; }
-
-.piq-error-list {
-  padding: 6px 8px;
-  overflow-y: auto;
-  flex: 1;
-  font-size: 9px;
-  font-family: monospace;
-  color: #ff7060;
-  line-height: 1.6;
-}
-.piq-error-entry {
-  display: block;
-  border-bottom: 1px solid rgba(200, 40, 20, 0.15);
-  padding: 2px 0;
-}
-.piq-error-entry:last-child { border-bottom: none; }
-.piq-error-time { color: rgba(255, 100, 80, 0.5); margin-right: 5px; }
-
-/* ── Dev calibration overlay ── */
-.piq-dev-calib {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 3500;
-  border-radius: 50%;
-  overflow: hidden;
-}
-.piq-dev-calib.hidden { display: none; }
-
-.piq-dev-svg {
-  width: 100%;
-  height: 100%;
-}
-
-.piq-dev-label {
-  position: absolute;
-  bottom: 4px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 8px;
-  font-family: monospace;
-  color: rgba(0, 255, 200, 0.5);
-  white-space: nowrap;
-  letter-spacing: 0.08em;
-}
-
-/* ── Spray layer z-index fix (above sphere, below error panel) ── */
-.piq-spray-layer {
-  z-index: 4000;
 }
