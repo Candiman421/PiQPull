@@ -800,7 +800,18 @@ const BrowseExport = (() => {
         showToast(`Session error: ${sessionErr.message}`, true);
       } finally {
         OrbController.setDone();
-        setTimeout(() => OrbController.hide(), 5000);
+        if (typeof CompletionModal !== 'undefined' && session) {
+          if (!session.completedAt) session.seal(!!isCancelled);
+          OrbController.showResult(isCancelled ? 'cancel' : 'done', {
+            ok:         session.successCount,
+            total:      session.totalCount,
+            durationMs: session.durationMs || 0,
+            path:       piQuixProjectFolder
+              ? `incoming\\PiQPull\\${piQuixProjectFolder}`
+              : '',
+          });
+        }
+        setTimeout(() => OrbController.hide(), 8000);
         if (exportBtn) { exportBtn.disabled = false; exportBtn.textContent = origLabel; }
         if (pickerEl) pickerEl.disabled = false;
       }
@@ -900,9 +911,18 @@ const BrowseExport = (() => {
       console.error('PiQPull ZIP bulk error:', bulkErr);
       showToast(`Export error: ${bulkErr.message}`, true);
     } finally {
-      setTimeout(() => OrbController.hide(), 3000);
+      OrbController.setDone();
+      if (typeof CompletionModal !== 'undefined' && session) {
+        if (!session.completedAt) session.seal(!!isCancelled);
+        OrbController.showResult(isCancelled ? 'cancel' : 'done', {
+          ok:         session.successCount,
+          total:      session.totalCount,
+          durationMs: session.durationMs || 0,
+        });
+      }
+      setTimeout(() => OrbController.hide(), 8000);
       if (exportBtn) { exportBtn.disabled = false; exportBtn.textContent = origLabel; }
-      if (pickerEl) pickerEl.disabled = false; // re-enable picker (disabled before PATH A/B split)
+      if (pickerEl) pickerEl.disabled = false;
     }
   }
 

@@ -402,6 +402,33 @@
           <rect x="300" y="275" width="120" height="168" fill="none" stroke="rgba(255,224,96,0.4)" stroke-width="1"
             stroke-dasharray="3 3" />
           <text x="302" y="288" fill="rgba(255,224,96,0.5)" font-size="8" font-family="monospace">BV face</text>
+
+          <!-- Coordinate compass — top-right corner, dev mode only -->
+          <!-- Screen coords: +X=right 0°, +Y=down 90°, 270°=up, 180°=left -->
+          <g id="calibCompass" transform="translate(450,52)">
+            <circle r="30" fill="rgba(0,0,0,0.65)" stroke="rgba(255,255,255,0.18)" stroke-width="0.8"/>
+            <!-- +X axis (right = 0°) -->
+            <line x1="0" y1="0" x2="22" y2="0" stroke="#ff5555" stroke-width="1.8"/>
+            <polygon points="22,0 17,-3 17,3" fill="#ff5555"/>
+            <text x="26" y="4" fill="#ff5555" font-size="8" font-family="monospace">+X</text>
+            <!-- -X -->
+            <line x1="0" y1="0" x2="-22" y2="0" stroke="rgba(255,85,85,0.4)" stroke-width="0.9"/>
+            <text x="-38" y="4" fill="rgba(255,85,85,0.5)" font-size="8" font-family="monospace">-X</text>
+            <!-- +Y axis (down in screen = 90°) -->
+            <line x1="0" y1="0" x2="0" y2="22" stroke="#55ee55" stroke-width="1.8"/>
+            <polygon points="0,22 -3,17 3,17" fill="#55ee55"/>
+            <text x="-12" y="33" fill="#55ee55" font-size="8" font-family="monospace">+Y</text>
+            <!-- -Y -->
+            <line x1="0" y1="0" x2="0" y2="-22" stroke="rgba(85,238,85,0.4)" stroke-width="0.9"/>
+            <text x="-12" y="-25" fill="rgba(85,238,85,0.5)" font-size="8" font-family="monospace">-Y</text>
+            <!-- Z dot: ⊙ = toward viewer (+Z), ⊗ = into screen (-Z) -->
+            <circle r="5" fill="rgba(80,150,255,0.75)" stroke="#4488ff" stroke-width="1.2"/>
+            <circle r="9" fill="none" stroke="rgba(80,150,255,0.3)" stroke-width="0.8" stroke-dasharray="3 2"/>
+            <text x="11" y="-12" fill="rgba(80,150,255,0.75)" font-size="8" font-family="monospace">Z⊙</text>
+            <!-- Legend -->
+            <text x="-29" y="42" fill="rgba(255,255,255,0.35)" font-size="6" font-family="monospace">0°=→ 90°=↓</text>
+            <text x="-29" y="50" fill="rgba(255,255,255,0.25)" font-size="6" font-family="monospace">180°=← 270°=↑</text>
+          </g>
         </svg>
         <div class="piq-dev-label">DEV CALIBRATION MODE -- screenshot + share</div>
       </div>
@@ -409,6 +436,9 @@
       <!-- ⚙ config button — bottom-right corner of sphere, near Beavis foot -->
       <button class="piq-orb-config-btn" id="piqOrbConfigBtn" title="Change characters"
         aria-label="Configure orb characters">⚙</button>
+
+      <!-- Result card — completion/error/cancel overlay inside sphere -->
+      <div id="piqResultCard" class="piq-result-card hidden" role="status" aria-label="Export result"></div>
 
       <!-- Cancel button — bottom center -->
       <button class="piq-orb-cancel" id="piqOrbCancel">Cancel</button>
