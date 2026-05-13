@@ -443,6 +443,18 @@
       <!-- Cancel button — bottom center -->
       <button class="piq-orb-cancel" id="piqOrbCancel">Cancel</button>
     </div>
+
+    <!-- Voice cone canvases at MODAL level — not clipped by sphere overflow:hidden -->
+    <!-- JS positions them over the sphere exactly via _syncCanvasSize() -->
+    <canvas id="bb-voice-canvas" style="position:absolute;pointer-events:none;z-index:20;" aria-hidden="true"></canvas>
+    <canvas id="bb-dev-canvas"   style="position:absolute;pointer-events:none;z-index:21;display:none;" aria-hidden="true"></canvas>
+  </div>
+
+  <!-- Basic mode toast — appears if FPS drops severely -->
+  <div id="bb-perf-toast" role="alert" style="display:none;position:fixed;bottom:64px;left:50%;transform:translateX(-50%);background:#111;border:1px solid #444;color:#ccc;font:12px monospace;padding:10px 16px;gap:10px;z-index:99999;align-items:center;">
+    Running slow — switch to basic mode?
+    <button onclick="bbVoiceSwitch()">Switch</button>
+    <button onclick="bbVoiceKeep()">Keep</button>
   </div>
 
   <script src="jszip.min.js"></script>
@@ -456,6 +468,12 @@
   <script src="orb-registry.js"></script>
   <script src="orb-panels.js"></script>
   <script src="orb-controller.js"></script>
+  <script src="browse-voice-math.js"></script>
+  <script src="browse-voice-pool.js"></script>
+  <script src="browse-voice-emit.js"></script>
+  <script src="browse-voice-draw.js"></script>
+  <script src="browse-voice-dev.js"></script>
+  <script src="browse-voice.js"></script>
   <script src="browse-export.js"></script>
   <script src="browse.js"></script>
 </body>

@@ -1658,3 +1658,124 @@ details[open] > .orb-tuning-group-hint {
   user-select: none;
   letter-spacing: 0.02em;
 }
+
+/* ── Voice cone dev panel ─────────────────────────────────────────────────── */
+#bb-voice-dev-panel {
+  position:         fixed;
+  top:              14px;
+  right:            14px;
+  width:            230px;
+  background:       rgba(8, 10, 24, 0.94);
+  border:           1px solid rgba(255,255,255,0.14);
+  border-radius:    6px;
+  z-index:          9998;
+  font-family:      'JetBrains Mono', 'Courier New', monospace;
+  font-size:        11px;
+  color:            #ccc;
+  box-shadow:       0 4px 24px rgba(0,0,0,0.5);
+  overflow:         hidden;
+}
+.bvd-header {
+  display:          flex;
+  justify-content:  space-between;
+  align-items:      center;
+  padding:          7px 10px;
+  background:       rgba(255,255,255,0.05);
+  border-bottom:    1px solid rgba(255,255,255,0.1);
+  cursor:           move;
+  -webkit-user-select: none;
+  user-select:      none;
+  font-size:        11px;
+  font-weight:      600;
+  letter-spacing:   0.5px;
+}
+.bvd-header button {
+  background: none;
+  border:     none;
+  color:      rgba(255,255,255,0.5);
+  cursor:     pointer;
+  font-size:  13px;
+  padding:    0 2px;
+  line-height: 1;
+}
+.bvd-header button:hover { color: #fff; }
+.bvd-body {
+  padding:      8px 10px;
+  max-height:   70vh;
+  overflow-y:   auto;
+  overflow-x:   hidden;
+}
+.bvd-body::-webkit-scrollbar       { width: 4px; }
+.bvd-body::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+.bvd-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+.bvd-tabs {
+  display:    flex;
+  gap:        5px;
+  margin-bottom: 8px;
+}
+.bvd-tab {
+  flex:        1;
+  padding:     4px 0;
+  background:  rgba(255,255,255,0.05);
+  border:      1px solid rgba(255,255,255,0.1);
+  border-radius: 3px;
+  color:       rgba(255,255,255,0.5);
+  cursor:      pointer;
+  font-family: inherit;
+  font-size:   10px;
+  transition:  background 0.12s, color 0.12s;
+}
+.bvd-tab--active {
+  background: rgba(100,180,255,0.15);
+  border-color: rgba(100,180,255,0.4);
+  color: #6aadff;
+}
+.bvd-row {
+  display:     grid;
+  grid-template-columns: 72px 1fr 40px;
+  align-items: center;
+  gap:         5px;
+  margin-bottom: 5px;
+  font-size:   10px;
+}
+.bvd-row span:first-child { color: rgba(255,255,255,0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bvd-row input[type=range] { width: 100%; accent-color: #6aadff; }
+.bvd-val { color: #aaddff; text-align: right; font-size: 9px; }
+.bvd-checks {
+  display:     flex;
+  gap:         10px;
+  margin:      6px 0;
+  font-size:   10px;
+  color:       rgba(255,255,255,0.55);
+}
+.bvd-checks input { accent-color: #6aadff; }
+.bvd-actions {
+  display:  flex;
+  gap:      6px;
+  margin:   6px 0;
+}
+.bvd-actions button {
+  flex:         1;
+  padding:      4px 0;
+  background:   rgba(255,255,255,0.06);
+  border:       1px solid rgba(255,255,255,0.12);
+  border-radius: 3px;
+  color:        #ccc;
+  cursor:       pointer;
+  font-family:  inherit;
+  font-size:    10px;
+}
+.bvd-actions button:hover { background: rgba(255,255,255,0.12); }
+#bvd-stats {
+  font-size:  9px;
+  color:      rgba(255,255,255,0.3);
+  margin-top: 4px;
+}
+.bvd-hint {
+  font-size:   9px;
+  color:       rgba(255,255,255,0.25);
+  margin-top:  6px;
+  line-height: 1.5;
+  border-top:  1px solid rgba(255,255,255,0.07);
+  padding-top: 5px;
+}

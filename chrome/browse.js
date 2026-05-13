@@ -356,4 +356,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       connectionStatusEl.classList.add('conn-error');
     }
   });
+
+  // ── Voice cone system ──
+  // Canvas overlays on the sphere; BBVoice receives text via OrbController.sprayFromSlot hook.
+  if (typeof BBVoice !== 'undefined') {
+    BBVoice.init(
+      document.getElementById('bb-voice-canvas'),
+      document.getElementById('bb-dev-canvas')
+    );
+    BBVoice.start();
+  }
+
+  // Ctrl+Shift+D — toggle voice cone dev panel
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+      e.preventDefault();
+      if (typeof BBVoice !== 'undefined') {
+        const nowActive = !document.getElementById('bb-dev-canvas').style.display || document.getElementById('bb-dev-canvas').style.display === 'none';
+        BBVoice.enableDev(nowActive);
+      }
+    }
+  });
 });

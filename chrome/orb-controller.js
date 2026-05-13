@@ -110,6 +110,12 @@ const OrbController = (() => {
       - slotCfg.spread * 0.5
       + Math.random() * slotCfg.spread;
 
+    // Feed the cone voice system with the same text (additive — runs independently on canvas)
+    if (typeof BBVoice !== 'undefined') BBVoice.onSay(slot, text);
+
+    // When suppressDOMSpray is on, skip DOM word spray for left/right (cone only)
+    if (typeof BBVoice !== 'undefined' && BBVoice.suppressDOMSpray && slot !== 'center') return;
+
     lines.forEach((line, i) => {
       setTimeout(() => {
         if (!sprayLayer.isConnected) return;
@@ -164,6 +170,10 @@ const OrbController = (() => {
     ErrorPanel.clear();
     const modal = elById('piqOrbModal');
     if (modal) modal.classList.remove('hidden');
+    // Force canvas resize now that orb is visible
+    if (typeof BBVoice !== 'undefined') BBVoice.resize();
+    // Flush stale sentences from previous export session
+    if (typeof BBVoice !== 'undefined') BBVoice.flush();
     setText('piqOrbCount', `0 / ${total}`);
     setText('piqOrbPct', '0%');
     setText('piqOrbName', 'Initializing\u2026');

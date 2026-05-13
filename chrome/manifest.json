@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PiQPull",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Downloads AI conversations into structured format. Claude.ai first. Provider-agnostic.",
   "permissions": [
     "activeTab",
@@ -54,7 +54,13 @@
         "orb-colors.js",
         "orb-registry.js",
         "orb-panels.js",
-        "orb-controller.js"
+        "orb-controller.js",
+        "browse-voice-math.js",
+        "browse-voice-pool.js",
+        "browse-voice-emit.js",
+        "browse-voice-draw.js",
+        "browse-voice-dev.js",
+        "browse-voice.js"
       ],
       "matches": [
         "<all_urls>"
